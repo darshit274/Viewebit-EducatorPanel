@@ -14,6 +14,9 @@ import { GradingPage } from './pages/grading/GradingPage';
 import { LiveSessionsPage } from './pages/live/LiveSessionsPage';
 import { QuizCategoriesPage } from './pages/quizzes/QuizCategoriesPage';
 import { PdfLibraryPage } from './pages/pdfs/PdfLibraryPage';
+import { StudentsPage } from './pages/students/StudentsPage';
+import { TestAttemptsPage } from './pages/test-attempts/TestAttemptsPage';
+import { SubscriptionsPage } from './pages/subscriptions/SubscriptionsPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 
 const queryClient = new QueryClient({
@@ -53,6 +56,9 @@ const AuthWrapper: React.FC = () => {
         <Route path="live-sessions" element={<ProtectedRoute><LiveSessionsPage /></ProtectedRoute>} />
         <Route path="quizzes" element={<ProtectedRoute><QuizCategoriesPage /></ProtectedRoute>} />
         <Route path="pdfs" element={<ProtectedRoute><PdfLibraryPage /></ProtectedRoute>} />
+        <Route path="students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
+        <Route path="test-attempts" element={<ProtectedRoute><TestAttemptsPage /></ProtectedRoute>} />
+        <Route path="subscriptions" element={<ProtectedRoute><SubscriptionsPage /></ProtectedRoute>} />
         <Route
           path="announcements"
           element={

@@ -9,6 +9,9 @@ import {
   Video,
   HelpCircle,
   FileText,
+  Users,
+  Activity,
+  CreditCard,
 } from 'lucide-react';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
@@ -18,6 +21,9 @@ import { useAuth } from '../../hooks/useAuth';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'My Courses', href: '/courses', icon: BookOpen },
+  { name: 'Students', href: '/students', icon: Users },
+  { name: 'Test Attempts', href: '/test-attempts', icon: Activity },
+  { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
   { name: 'Quiz Categories', href: '/quizzes', icon: HelpCircle },
   { name: 'PDF Library', href: '/pdfs', icon: FileText },
   { name: 'Assignments & Quizzes', href: '/assignments', icon: ClipboardList },
