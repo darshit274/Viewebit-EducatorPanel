@@ -97,3 +97,63 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
 }
+
+// Student insights types
+export type AccessType = 'paid' | 'free' | 'quiz';
+
+export interface StudentRow {
+  uuid: string;
+  name: string | null;
+  email: string | null;
+  courses: string[];
+  accessType: AccessType;
+  lastActivity: string | null;
+  quizAttempts: number;
+}
+
+export interface TestAttemptSummary {
+  studentUuid: string;
+  studentName: string | null;
+  studentEmail: string | null;
+  totalAttempts: number;
+  completedAttempts: number;
+  latestAttempt: {
+    sessionId: string;
+    categoryName: string | null;
+    percentage: number | null;
+    finalScore: number | null;
+    completedAt: string | null;
+  };
+}
+
+export interface TestAttemptDetail {
+  sessionId: string;
+  categoryName: string | null;
+  percentage: number | null;
+  finalScore: number | null;
+  totalCorrect: number;
+  totalWrong: number;
+  totalQuestions: number;
+  timeSpentSeconds: number | null;
+  completedAt: string | null;
+}
+
+export type SubscriptionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+
+export interface SubscriptionRow {
+  id: string;
+  student: { uuid: string; name: string | null; email: string | null } | null;
+  courseTitle: string | null;
+  amountPaid: number;
+  currency: string;
+  status: SubscriptionStatus;
+  purchaseDate: string;
+  expiryDate: string | null;
+}
+
+export interface Pagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
