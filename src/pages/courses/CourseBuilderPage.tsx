@@ -329,7 +329,7 @@ export const CourseBuilderPage: React.FC = () => {
             value={newModuleTitle}
             onChange={(e) => setNewModuleTitle(e.target.value)}
             placeholder="New module title, e.g. 'Intro to bonds'"
-            className="input-field flex-1"
+            className="input-field flex-1 border"
           />
           <button type="submit" className="btn-primary inline-flex items-center">
             <Plus className="h-4 w-4 mr-2" />
