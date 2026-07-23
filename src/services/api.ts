@@ -33,10 +33,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Only force a redirect if we actually had a session to expire — a failed
+      // login attempt never had a token, and should just show its own inline error.
+      const hadToken = !!sessionStorage.getItem(STORAGE_KEYS.TOKEN);
+
       sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
       sessionStorage.removeItem(STORAGE_KEYS.USER);
-      if (!window.location.href.includes('login')) {
-        window.location.href = '/';
+
+      if (hadToken) {
+        window.location.href = import.meta.env.VITE_BASE_PATH || '/';
       }
     }
     return Promise.reject(error);
