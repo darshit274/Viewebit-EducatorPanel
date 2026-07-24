@@ -302,6 +302,10 @@ const EditLessonModal: React.FC<EditLessonModalProps> = ({ isOpen, onClose, onSu
       toast.error('Title is required');
       return;
     }
+    if (lesson.lesson_type === 'video' && !videoUrl.trim()) {
+      toast.error('Video URL is required');
+      return;
+    }
     setLoading(true);
     try {
       await coursesService.updateLesson(lesson.uuid, {
