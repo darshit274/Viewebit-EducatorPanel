@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ClipboardList, Trash2 } from 'lucide-react';
+import { Plus, ClipboardList, Trash2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
@@ -147,10 +147,125 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ isOpen, o
   );
 };
 
+interface EditAssignmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  assignment: Assignment | null;
+}
+
+const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClose, onSuccess, assignment }) => {
+  const [title, setTitle] = useState('');
+  const [maxPoints, setMaxPoints] = useState('100');
+  const [dueDate, setDueDate] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && assignment) {
+      setTitle(assignment.title);
+      setMaxPoints(String(assignment.max_points));
+      setDueDate(assignment.due_date ? assignment.due_date.slice(0, 16) : '');
+    }
+  }, [isOpen, assignment]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignment) return;
+    if (!title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await assignmentsService.updateAssignment(assignment.uuid, {
+        title,
+        max_points: parseInt(maxPoints) || 100,
+        due_date: dueDate || undefined,
+      });
+      toast.success('Assignment updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update assignment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !assignment) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Assignment</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Submission Type</label>
+              <p className="px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-md capitalize">
+                {assignment.submission_type.replace('_', ' ')}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Max Points</label>
+              <input
+                type="number"
+                value={maxPoints}
+                onChange={(e) => setMaxPoints(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+
+          {assignment.submission_type === 'quiz' && assignment.quizCategory && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Quiz Category</label>
+              <p className="px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-md">
+                {assignment.quizCategory.name}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const AssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editAssignment, setEditAssignment] = useState<Assignment | null>(null);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, assignment: null as Assignment | null, loading: false });
 
   useEffect(() => {
@@ -231,12 +346,17 @@ export const AssignmentsPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => setConfirmModal({ isOpen: true, assignment, loading: false })}
-                  className="p-2 text-gray-400 hover:text-red-600"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setEditAssignment(assignment)} className="p-2 text-gray-400 hover:text-primary-600">
+                    <Pencil className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => setConfirmModal({ isOpen: true, assignment, loading: false })}
+                    className="p-2 text-gray-400 hover:text-red-600"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -244,6 +364,7 @@ export const AssignmentsPage: React.FC = () => {
       </div>
 
       <CreateAssignmentModal isOpen={showModal} onClose={() => setShowModal(false)} onSuccess={loadAssignments} />
+      <EditAssignmentModal isOpen={!!editAssignment} onClose={() => setEditAssignment(null)} onSuccess={loadAssignments} assignment={editAssignment} />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
