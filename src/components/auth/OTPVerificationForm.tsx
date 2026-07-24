@@ -47,7 +47,7 @@ export const OTPVerificationForm: React.FC<OTPVerificationFormProps> = ({ email,
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, []);
 
   useEffect(() => {
     if (resendCooldown <= 0) {

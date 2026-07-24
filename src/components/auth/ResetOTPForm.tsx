@@ -48,7 +48,7 @@ export const ResetOTPForm: React.FC<ResetOTPFormProps> = ({ email, onVerified, o
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, []);
 
   useEffect(() => {
     if (resendCooldown <= 0) {
