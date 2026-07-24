@@ -86,6 +86,14 @@ export const quizHierarchyService = {
     return response.data;
   },
 
+  updateQuestion: async (
+    questionUuid: string,
+    data: Partial<Pick<QuizQuestion, 'question_text' | 'option_a' | 'option_b' | 'option_c' | 'option_d' | 'correct_answer' | 'explanation' | 'marks'>>
+  ) => {
+    const response = await api.put(`/educator/quizzes/questions/${questionUuid}`, data);
+    return response.data;
+  },
+
   deleteQuestion: async (questionUuid: string) => {
     const response = await api.delete(`/educator/quizzes/questions/${questionUuid}`);
     return response.data;

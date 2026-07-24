@@ -27,6 +27,11 @@ export const coursesService = {
     return response.data;
   },
 
+  deleteCourse: async (uuid: string) => {
+    const response = await api.delete(`/educator/courses/${uuid}`);
+    return response.data;
+  },
+
   getAvailableTestSeries: async (): Promise<{ success: boolean; data: TestSeriesOption[] }> => {
     const response = await api.get('/educator/courses/available-test-series');
     return response.data;
@@ -49,6 +54,11 @@ export const coursesService = {
 
   reorderModules: async (courseUuid: string, orderedModuleUuids: string[]) => {
     const response = await api.patch(`/educator/courses/${courseUuid}/modules/reorder`, { orderedModuleUuids });
+    return response.data;
+  },
+
+  updateModule: async (moduleUuid: string, data: { title?: string }): Promise<{ success: boolean; data: CourseModule }> => {
+    const response = await api.put(`/educator/courses/modules/${moduleUuid}`, data);
     return response.data;
   },
 
@@ -76,6 +86,22 @@ export const coursesService = {
 
   reorderLessons: async (moduleUuid: string, orderedLessonUuids: string[]) => {
     const response = await api.patch(`/educator/courses/modules/${moduleUuid}/lessons/reorder`, { orderedLessonUuids });
+    return response.data;
+  },
+
+  updateLesson: async (
+    lessonUuid: string,
+    data: {
+      title?: string;
+      video_url?: string;
+      content_html?: string;
+      pdf_id?: string;
+      category_id?: number;
+      duration_minutes?: number;
+      is_free_preview?: boolean;
+    }
+  ): Promise<{ success: boolean; data: Lesson }> => {
+    const response = await api.put(`/educator/courses/lessons/${lessonUuid}`, data);
     return response.data;
   },
 

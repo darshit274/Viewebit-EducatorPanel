@@ -19,6 +19,7 @@ export interface PdfItem {
   original_filename: string;
   file_size: number;
   is_active: boolean;
+  file_url?: string;
 }
 
 export interface PdfCategoryContent {
@@ -52,6 +53,11 @@ export const pdfHierarchyService = {
     return response.data;
   },
 
+  updateCategory: async (categoryUuid: string, data: { name?: string; description?: string }) => {
+    const response = await api.put(`/educator/pdfs/categories/${categoryUuid}`, data);
+    return response.data;
+  },
+
   deleteCategory: async (categoryUuid: string) => {
     const response = await api.delete(`/educator/pdfs/categories/${categoryUuid}`);
     return response.data;
@@ -63,6 +69,11 @@ export const pdfHierarchyService = {
     if (description) formData.append('description', description);
     formData.append('file', file);
     const response = await api.post(`/educator/pdfs/categories/${categoryUuid}/upload`, formData);
+    return response.data;
+  },
+
+  updatePdf: async (pdfId: string, data: { title?: string; description?: string }) => {
+    const response = await api.put(`/educator/pdfs/pdfs/${pdfId}`, data);
     return response.data;
   },
 

@@ -61,6 +61,14 @@ export const assignmentsService = {
     return response.data;
   },
 
+  updateAssignment: async (
+    uuid: string,
+    data: { title?: string; max_points?: number; due_date?: string }
+  ): Promise<{ success: boolean; data: Assignment }> => {
+    const response = await api.put(`/educator/assignments/${uuid}`, data);
+    return response.data;
+  },
+
   deleteAssignment: async (uuid: string) => {
     const response = await api.delete(`/educator/assignments/${uuid}`);
     return response.data;
