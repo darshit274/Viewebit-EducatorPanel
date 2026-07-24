@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Users } from 'lucide-react';
+import { Plus, BookOpen, Users, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
+import { ConfirmModal } from '../../components/modals/ConfirmModal';
+import { EditCourseModal } from '../../components/courses/EditCourseModal';
 import { coursesService } from '../../services/courses';
 import { Course, TestSeriesOption } from '../../types';
 
@@ -119,6 +121,24 @@ export const MyCoursesPage: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editCourse, setEditCourse] = useState<Course | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; course: Course | null; loading: boolean }>({
+    isOpen: false, course: null, loading: false,
+  });
+
+  const handleConfirmDelete = async () => {
+    if (!confirmModal.course) return;
+    setConfirmModal((prev) => ({ ...prev, loading: true }));
+    try {
+      await coursesService.deleteCourse(confirmModal.course.uuid);
+      toast.success('Course deleted successfully');
+      loadCourses();
+      setConfirmModal({ isOpen: false, course: null, loading: false });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete course');
+      setConfirmModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
 
   useEffect(() => {
     loadCourses();
@@ -187,7 +207,18 @@ export const MyCoursesPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <button className="btn-secondary text-sm">Manage</button>
+                <div className="flex items-center gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); setEditCourse(course); }} className="p-2 text-gray-400 hover:text-primary-600">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmModal({ isOpen: true, course, loading: false }); }}
+                    className="p-2 text-gray-400 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button className="btn-secondary text-sm" onClick={(e) => e.stopPropagation()}>Manage</button>
+                </div>
               </div>
             ))}
           </div>
@@ -198,6 +229,17 @@ export const MyCoursesPage: React.FC = () => {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSuccess={(uuid) => navigate(`/courses/${uuid}/builder`)}
+      />
+      <EditCourseModal isOpen={!!editCourse} onClose={() => setEditCourse(null)} onSuccess={loadCourses} course={editCourse} />
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, course: null, loading: false })}
+        onConfirm={handleConfirmDelete}
+        title="Delete Course"
+        message={`Are you sure you want to delete "${confirmModal.course?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        type="danger"
+        loading={confirmModal.loading}
       />
     </div>
   );
