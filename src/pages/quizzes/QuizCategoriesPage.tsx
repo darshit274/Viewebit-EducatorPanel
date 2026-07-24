@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, ChevronRight, Folder, HelpCircle, Home } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronRight, Folder, HelpCircle, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
@@ -214,6 +214,212 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({ isOpen, onClose, on
   );
 };
 
+interface EditCategoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  category: QuizCategory | null;
+}
+
+const EditCategoryModal: React.FC<EditCategoryModalProps> = ({ isOpen, onClose, onSuccess, category }) => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && category) {
+      setName(category.name);
+      setDescription(category.description || '');
+    }
+  }, [isOpen, category]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!category) return;
+    if (!name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await quizHierarchyService.updateCategory(category.uuid, { name, description: description || undefined });
+      toast.success('Category updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update category');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !category) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Category</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface EditQuestionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  question: QuizQuestion | null;
+}
+
+const EditQuestionModal: React.FC<EditQuestionModalProps> = ({ isOpen, onClose, onSuccess, question }) => {
+  const [questionText, setQuestionText] = useState('');
+  const [options, setOptions] = useState({ A: '', B: '', C: '', D: '' });
+  const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [explanation, setExplanation] = useState('');
+  const [marks, setMarks] = useState('1');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && question) {
+      setQuestionText(question.question_text);
+      setOptions({ A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d });
+      setCorrectAnswer(question.correct_answer);
+      setExplanation(question.explanation || '');
+      setMarks(String(question.marks));
+    }
+  }, [isOpen, question]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!question) return;
+    if (!questionText.trim() || !options.A.trim() || !options.B.trim() || !options.C.trim() || !options.D.trim()) {
+      toast.error('Question text and all four options are required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await quizHierarchyService.updateQuestion(question.uuid, {
+        question_text: questionText,
+        option_a: options.A,
+        option_b: options.B,
+        option_c: options.C,
+        option_d: options.D,
+        correct_answer: correctAnswer,
+        explanation: explanation || undefined,
+        marks: parseInt(marks) || 1,
+      });
+      toast.success('Question updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update question');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !question) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Question</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Question *</label>
+            <textarea
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+
+          {(['A', 'B', 'C', 'D'] as const).map((key) => (
+            <div key={key} className="flex items-center gap-3">
+              <input
+                type="radio"
+                name="edit_correct_answer"
+                checked={correctAnswer === key}
+                onChange={() => setCorrectAnswer(key)}
+                className="h-4 w-4 text-primary-600"
+              />
+              <input
+                type="text"
+                value={options[key]}
+                onChange={(e) => setOptions({ ...options, [key]: e.target.value })}
+                placeholder={`Option ${key}`}
+                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              />
+            </div>
+          ))}
+          <p className="text-xs text-gray-500">Select the radio button next to the correct option.</p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Explanation (optional)</label>
+            <textarea
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Marks</label>
+            <input
+              type="number"
+              value={marks}
+              onChange={(e) => setMarks(e.target.value)}
+              className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const QuizCategoriesPage: React.FC = () => {
   const [rootCategories, setRootCategories] = useState<QuizCategory[]>([]);
   const [currentUuid, setCurrentUuid] = useState<string | null>(null);
@@ -221,6 +427,8 @@ export const QuizCategoriesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [editCategory, setEditCategory] = useState<QuizCategory | null>(null);
+  const [editQuestion, setEditQuestion] = useState<QuizQuestion | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'category' | 'question'; uuid: string; label: string; loading: boolean }>({
     isOpen: false, type: 'category', uuid: '', label: '', loading: false,
   });
@@ -348,6 +556,9 @@ export const QuizCategoriesPage: React.FC = () => {
                     <span className="font-medium text-gray-900">{cat.name}</span>
                     <span className="text-xs text-gray-400 capitalize">({cat.node_type.replace('_', ' ')})</span>
                   </button>
+                  <button onClick={() => setEditCategory(cat)} className="p-2 text-gray-400 hover:text-primary-600">
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button onClick={() => setConfirmModal({ isOpen: true, type: 'category', uuid: cat.uuid, label: cat.name, loading: false })} className="p-2 text-gray-400 hover:text-red-600">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -368,6 +579,9 @@ export const QuizCategoriesPage: React.FC = () => {
                       <Folder className="h-5 w-5 text-primary-500" />
                       <span className="font-medium text-gray-900">{cat.name}</span>
                     </button>
+                    <button onClick={() => setEditCategory(cat)} className="p-2 text-gray-400 hover:text-primary-600">
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button onClick={() => setConfirmModal({ isOpen: true, type: 'category', uuid: cat.uuid, label: cat.name, loading: false })} className="p-2 text-gray-400 hover:text-red-600">
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -386,6 +600,9 @@ export const QuizCategoriesPage: React.FC = () => {
                         <p className="text-xs text-gray-500">Correct: {q.correct_answer} · {q.marks} mark{q.marks === 1 ? '' : 's'}</p>
                       </div>
                     </div>
+                    <button onClick={() => setEditQuestion(q)} className="p-2 text-gray-400 hover:text-primary-600">
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button onClick={() => setConfirmModal({ isOpen: true, type: 'question', uuid: q.uuid, label: q.question_text, loading: false })} className="p-2 text-gray-400 hover:text-red-600">
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -401,6 +618,8 @@ export const QuizCategoriesPage: React.FC = () => {
       {currentUuid && (
         <AddQuestionModal isOpen={showQuestionModal} onClose={() => setShowQuestionModal(false)} onSuccess={refresh} categoryUuid={currentUuid} />
       )}
+      <EditCategoryModal isOpen={!!editCategory} onClose={() => setEditCategory(null)} onSuccess={refresh} category={editCategory} />
+      <EditQuestionModal isOpen={!!editQuestion} onClose={() => setEditQuestion(null)} onSuccess={refresh} question={editQuestion} />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
