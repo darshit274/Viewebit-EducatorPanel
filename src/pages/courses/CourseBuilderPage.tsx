@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Video, FileText, HelpCircle, Radio } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Pencil, ChevronUp, ChevronDown, Video, FileText, HelpCircle, Radio } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
+import { EditCourseModal } from '../../components/courses/EditCourseModal';
 import { coursesService } from '../../services/courses';
 import { Course, CourseModule, Lesson, LessonType, QuizCategoryOption, PdfOption } from '../../types';
 
@@ -190,6 +191,237 @@ const LessonForm: React.FC<LessonFormProps> = ({ moduleUuid, onCreated, onCancel
   );
 };
 
+interface EditModuleModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  module: CourseModule | null;
+}
+
+const EditModuleModal: React.FC<EditModuleModalProps> = ({ isOpen, onClose, onSuccess, module }) => {
+  const [title, setTitle] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && module) {
+      setTitle(module.title);
+    }
+  }, [isOpen, module]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!module) return;
+    if (!title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await coursesService.updateModule(module.uuid, { title });
+      toast.success('Module updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update module');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !module) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Module</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Module Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface EditLessonModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  lesson: Lesson | null;
+}
+
+const EditLessonModal: React.FC<EditLessonModalProps> = ({ isOpen, onClose, onSuccess, lesson }) => {
+  const [title, setTitle] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [contentHtml, setContentHtml] = useState('');
+  const [pdfId, setPdfId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [isFreePreview, setIsFreePreview] = useState(false);
+  const [quizCategories, setQuizCategories] = useState<QuizCategoryOption[]>([]);
+  const [pdfs, setPdfs] = useState<PdfOption[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      coursesService.getAvailableQuizCategories().then((res) => setQuizCategories(res.data || [])).catch(() => setQuizCategories([]));
+      coursesService.getAvailablePdfs().then((res) => setPdfs(res.data || [])).catch(() => setPdfs([]));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && lesson) {
+      setTitle(lesson.title);
+      setVideoUrl(lesson.video_url || '');
+      setContentHtml(lesson.content_html || '');
+      setPdfId(lesson.pdf_id || '');
+      setCategoryId(lesson.category_id ? String(lesson.category_id) : '');
+      setIsFreePreview(lesson.is_free_preview);
+    }
+  }, [isOpen, lesson]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lesson) return;
+    if (!title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await coursesService.updateLesson(lesson.uuid, {
+        title,
+        video_url: lesson.lesson_type === 'video' ? videoUrl : undefined,
+        content_html: lesson.lesson_type === 'document' ? contentHtml || undefined : undefined,
+        pdf_id: lesson.lesson_type === 'document' && pdfId ? pdfId : undefined,
+        category_id: lesson.lesson_type === 'quiz' && categoryId ? parseInt(categoryId) : undefined,
+        is_free_preview: isFreePreview,
+      });
+      toast.success('Lesson updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update lesson');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !lesson) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Lesson</h2>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Lesson Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+
+          {lesson.lesson_type === 'video' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Video URL *</label>
+              <input
+                type="text"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          )}
+
+          {lesson.lesson_type === 'document' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Use an existing PDF</label>
+                <select
+                  value={pdfId}
+                  onChange={(e) => setPdfId(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">None</option>
+                  {pdfs.map((pdf) => (
+                    <option key={pdf.id} value={pdf.id}>{pdf.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Or write content directly</label>
+                <textarea
+                  value={contentHtml}
+                  onChange={(e) => setContentHtml(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {lesson.lesson_type === 'quiz' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Quiz Category *</label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              >
+                <option value="">Select a quiz category</option>
+                {quizCategories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {lesson.lesson_type === 'live' && (
+            <p className="text-xs text-gray-500">
+              Live sessions can be scheduled and linked from the Live Sessions tab once created.
+            </p>
+          )}
+
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={isFreePreview} onChange={(e) => setIsFreePreview(e.target.checked)} className="h-4 w-4 text-primary-600 rounded" />
+            <span className="text-sm text-gray-700">Free preview (visible even to non-enrolled students)</span>
+          </label>
+
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const CourseBuilderPage: React.FC = () => {
   const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
@@ -197,6 +429,9 @@ export const CourseBuilderPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [newModuleTitle, setNewModuleTitle] = useState('');
   const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
+  const [showEditCourse, setShowEditCourse] = useState(false);
+  const [editModule, setEditModule] = useState<CourseModule | null>(null);
+  const [editLesson, setEditLesson] = useState<Lesson | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'module' | 'lesson'; uuid: string; label: string; loading: boolean }>({
     isOpen: false,
     type: 'lesson',
@@ -317,9 +552,15 @@ export const CourseBuilderPage: React.FC = () => {
             <p className="text-gray-600">{course.description}</p>
           </div>
         </div>
-        <button onClick={handlePublishToggle} className={course.status === 'published' ? 'btn-secondary' : 'btn-primary'}>
-          {course.status === 'published' ? 'Unpublish' : 'Publish'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowEditCourse(true)} className="btn-secondary inline-flex items-center">
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit
+          </button>
+          <button onClick={handlePublishToggle} className={course.status === 'published' ? 'btn-secondary' : 'btn-primary'}>
+            {course.status === 'published' ? 'Unpublish' : 'Publish'}
+          </button>
+        </div>
       </div>
 
       <div className="card p-6">
@@ -349,6 +590,9 @@ export const CourseBuilderPage: React.FC = () => {
                   <button onClick={() => moveModule(course.modules || [], moduleIndex, 1)} className="p-1 text-gray-400 hover:text-gray-600" disabled={moduleIndex === (course.modules?.length || 1) - 1}>
                     <ChevronDown className="h-4 w-4" />
                   </button>
+                  <button onClick={() => setEditModule(module)} className="p-1 text-gray-400 hover:text-primary-600">
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={() => setConfirmModal({ isOpen: true, type: 'module', uuid: module.uuid, label: module.title, loading: false })}
                     className="p-1 text-gray-400 hover:text-red-600"
@@ -374,6 +618,9 @@ export const CourseBuilderPage: React.FC = () => {
                         </button>
                         <button onClick={() => moveLesson(module.uuid, module.lessons, lessonIndex, 1)} className="p-1 text-gray-400 hover:text-gray-600" disabled={lessonIndex === module.lessons.length - 1}>
                           <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => setEditLesson(lesson)} className="p-1 text-gray-400 hover:text-primary-600">
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, type: 'lesson', uuid: lesson.uuid, label: lesson.title, loading: false })}
@@ -410,6 +657,10 @@ export const CourseBuilderPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      <EditCourseModal isOpen={showEditCourse} onClose={() => setShowEditCourse(false)} onSuccess={loadCourse} course={course} />
+      <EditModuleModal isOpen={!!editModule} onClose={() => setEditModule(null)} onSuccess={loadCourse} module={editModule} />
+      <EditLessonModal isOpen={!!editLesson} onClose={() => setEditLesson(null)} onSuccess={loadCourse} lesson={editLesson} />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
