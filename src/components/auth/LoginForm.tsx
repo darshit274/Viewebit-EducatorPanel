@@ -7,6 +7,9 @@ import { z } from 'zod';
 import logo from '../../assets/Viewebit.jpg';
 import { authService } from '../../services/auth';
 import { OTPVerificationForm } from './OTPVerificationForm';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
+import { ResetOTPForm } from './ResetOTPForm';
+import { ResetNewPasswordForm } from './ResetNewPasswordForm';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -24,6 +27,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showOTPScreen, setShowOTPScreen] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [forgotStep, setForgotStep] = useState<'none' | 'email' | 'otp' | 'reset'>('none');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
 
   const {
     register,
@@ -61,6 +67,48 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
   if (showOTPScreen && userEmail) {
     return <OTPVerificationForm email={userEmail} onSuccess={onSuccess} onBack={handleBackToLogin} />;
+  }
+
+  const handleBackFromForgot = () => {
+    setForgotStep('none');
+    setResetEmail('');
+    setResetToken('');
+  };
+
+  if (forgotStep === 'email') {
+    return (
+      <ForgotPasswordForm
+        onSent={(email) => {
+          setResetEmail(email);
+          setForgotStep('otp');
+        }}
+        onBack={handleBackFromForgot}
+      />
+    );
+  }
+
+  if (forgotStep === 'otp') {
+    return (
+      <ResetOTPForm
+        email={resetEmail}
+        onVerified={(token) => {
+          setResetToken(token);
+          setForgotStep('reset');
+        }}
+        onBack={handleBackFromForgot}
+      />
+    );
+  }
+
+  if (forgotStep === 'reset') {
+    return (
+      <ResetNewPasswordForm
+        email={resetEmail}
+        resetToken={resetToken}
+        onSuccess={handleBackFromForgot}
+        onBack={handleBackFromForgot}
+      />
+    );
   }
 
   return (
@@ -113,6 +161,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 </button>
               </div>
               {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => setForgotStep('email')}
+                  className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
           </div>
 
