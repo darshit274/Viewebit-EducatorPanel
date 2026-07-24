@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, ChevronRight, Folder, FileText, Home, Upload } from 'lucide-react';
+import { Plus, Trash2, Pencil, ExternalLink, ChevronRight, Folder, FileText, Home, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
@@ -178,6 +178,164 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess, c
   );
 };
 
+interface EditCategoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  category: PdfCategoryNode | null;
+}
+
+const EditCategoryModal: React.FC<EditCategoryModalProps> = ({ isOpen, onClose, onSuccess, category }) => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && category) {
+      setName(category.name);
+      setDescription(category.description || '');
+    }
+  }, [isOpen, category]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!category) return;
+    if (!name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await pdfHierarchyService.updateCategory(category.uuid, { name, description: description || undefined });
+      toast.success('Folder updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update folder');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !category) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Folder</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface EditPdfModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  pdf: PdfItem | null;
+}
+
+const EditPdfModal: React.FC<EditPdfModalProps> = ({ isOpen, onClose, onSuccess, pdf }) => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && pdf) {
+      setTitle(pdf.title);
+      setDescription(pdf.description || '');
+    }
+  }, [isOpen, pdf]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pdf) return;
+    if (!title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await pdfHierarchyService.updatePdf(pdf.id, { title, description: description || undefined });
+      toast.success('PDF updated');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update PDF');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !pdf) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit PDF</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="border-t pt-4 flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const PdfLibraryPage: React.FC = () => {
   const [rootCategories, setRootCategories] = useState<PdfCategoryNode[]>([]);
   const [currentUuid, setCurrentUuid] = useState<string | null>(null);
@@ -185,6 +343,8 @@ export const PdfLibraryPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [editCategory, setEditCategory] = useState<PdfCategoryNode | null>(null);
+  const [editPdf, setEditPdf] = useState<PdfItem | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'category' | 'pdf'; uuid: string; label: string; loading: boolean }>({
     isOpen: false, type: 'category', uuid: '', label: '', loading: false,
   });
@@ -308,6 +468,9 @@ export const PdfLibraryPage: React.FC = () => {
                     <Folder className="h-5 w-5 text-primary-500" />
                     <span className="font-medium text-gray-900">{cat.name}</span>
                   </button>
+                  <button onClick={() => setEditCategory(cat)} className="p-2 text-gray-400 hover:text-primary-600">
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button onClick={() => setConfirmModal({ isOpen: true, type: 'category', uuid: cat.uuid, label: cat.name, loading: false })} className="p-2 text-gray-400 hover:text-red-600">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -328,6 +491,9 @@ export const PdfLibraryPage: React.FC = () => {
                       <Folder className="h-5 w-5 text-primary-500" />
                       <span className="font-medium text-gray-900">{cat.name}</span>
                     </button>
+                    <button onClick={() => setEditCategory(cat)} className="p-2 text-gray-400 hover:text-primary-600">
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button onClick={() => setConfirmModal({ isOpen: true, type: 'category', uuid: cat.uuid, label: cat.name, loading: false })} className="p-2 text-gray-400 hover:text-red-600">
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -339,13 +505,20 @@ export const PdfLibraryPage: React.FC = () => {
               <div className="divide-y divide-gray-200">
                 {content.category.pdfs.map((pdf: PdfItem) => (
                   <div key={pdf.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                    <div className="flex items-center gap-2 flex-1">
+                    <button
+                      onClick={() => pdf.file_url && window.open(pdf.file_url, '_blank', 'noopener,noreferrer')}
+                      className="flex items-center gap-2 flex-1 text-left"
+                    >
                       <FileText className="h-5 w-5 text-primary-500" />
                       <div>
                         <p className="text-sm font-medium text-gray-900">{pdf.title}</p>
                         <p className="text-xs text-gray-500">{(pdf.file_size / 1024).toFixed(0)} KB</p>
                       </div>
-                    </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-gray-300" />
+                    </button>
+                    <button onClick={() => setEditPdf(pdf)} className="p-2 text-gray-400 hover:text-primary-600">
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button onClick={() => setConfirmModal({ isOpen: true, type: 'pdf', uuid: pdf.id, label: pdf.title, loading: false })} className="p-2 text-gray-400 hover:text-red-600">
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -361,6 +534,8 @@ export const PdfLibraryPage: React.FC = () => {
       {currentUuid && (
         <UploadModal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} onSuccess={refresh} categoryUuid={currentUuid} />
       )}
+      <EditCategoryModal isOpen={!!editCategory} onClose={() => setEditCategory(null)} onSuccess={refresh} category={editCategory} />
+      <EditPdfModal isOpen={!!editPdf} onClose={() => setEditPdf(null)} onSuccess={refresh} pdf={editPdf} />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
