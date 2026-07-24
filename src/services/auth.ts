@@ -11,6 +11,21 @@ interface ResendOTPData {
   email: string;
 }
 
+interface ForgotPasswordData {
+  email: string;
+}
+
+interface VerifyResetOTPData {
+  email: string;
+  otp: string;
+}
+
+interface ResetPasswordData {
+  email: string;
+  resetToken: string;
+  newPassword: string;
+}
+
 interface LoginResponse {
   email: string;
   requiresOTP: boolean;
@@ -34,6 +49,21 @@ export const authService = {
 
   resendOTP: async (data: ResendOTPData): Promise<void> => {
     await api.post('/educator/resend-otp', data);
+  },
+
+  forgotPassword: async (data: ForgotPasswordData): Promise<{ message: string }> => {
+    const response = await api.post('/educator/forgot-password', data);
+    return response.data;
+  },
+
+  verifyResetOTP: async (data: VerifyResetOTPData): Promise<{ resetToken: string }> => {
+    const response = await api.post('/educator/verify-reset-otp', data);
+    return response.data.data;
+  },
+
+  resetPassword: async (data: ResetPasswordData): Promise<{ message: string }> => {
+    const response = await api.post('/educator/reset-password', data);
+    return response.data;
   },
 
   logout: async (): Promise<void> => {
