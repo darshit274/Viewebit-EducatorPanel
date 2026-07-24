@@ -29,6 +29,7 @@ interface ResetNewPasswordFormProps {
 export const ResetNewPasswordForm: React.FC<ResetNewPasswordFormProps> = ({ email, resetToken, onSuccess, onBack }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
@@ -95,10 +96,13 @@ export const ResetNewPasswordForm: React.FC<ResetNewPasswordFormProps> = ({ emai
               </div>
               <input
                 {...register('confirmPassword')}
-                type={showPassword ? 'text' : 'password'}
-                className={`block w-full pl-10 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${errors.confirmPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                type={showConfirmPassword ? 'text' : 'password'}
+                className={`block w-full pl-10 pr-10 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${errors.confirmPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
                 placeholder="Confirm new password"
               />
+              <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                {showConfirmPassword ? <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" /> : <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />}
+              </button>
             </div>
             {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>}
           </div>
