@@ -12,12 +12,12 @@ export const coursesService = {
     return response.data;
   },
 
-  createCourse: async (data: { title: string; description?: string; test_series_id?: number | null }) => {
+  createCourse: async (data: { title: string; description?: string; test_series_id?: number | null; price?: number }) => {
     const response = await api.post('/educator/courses', data);
     return response.data;
   },
 
-  updateCourse: async (uuid: string, data: Partial<Course>) => {
+  updateCourse: async (uuid: string, data: Partial<Course> & { price?: number }) => {
     const response = await api.put(`/educator/courses/${uuid}`, data);
     return response.data;
   },

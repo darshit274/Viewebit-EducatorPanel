@@ -6,6 +6,7 @@ import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { EditCourseModal } from '../../components/courses/EditCourseModal';
 import { coursesService } from '../../services/courses';
+import { useAuth } from '../../hooks/useAuth';
 import { Course, TestSeriesOption } from '../../types';
 
 const STATUS_BADGE: Record<Course['status'], string> = {
@@ -21,9 +22,12 @@ interface CreateCourseModalProps {
 }
 
 const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { educator } = useAuth();
+  const pricingMode = educator?.institution?.pricing_mode || 'coaching_center';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [testSeriesId, setTestSeriesId] = useState('');
+  const [price, setPrice] = useState('');
   const [testSeriesOptions, setTestSeriesOptions] = useState<TestSeriesOption[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +37,7 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
       setTitle('');
       setDescription('');
       setTestSeriesId('');
+      setPrice('');
     }
   }, [isOpen]);
 
@@ -48,6 +53,7 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
         title,
         description: description || undefined,
         test_series_id: testSeriesId ? parseInt(testSeriesId) : null,
+        ...(pricingMode === 'private_educator' && price ? { price: parseFloat(price) } : {}),
       });
       toast.success('Course created successfully');
       onSuccess(response.data.uuid);
@@ -86,22 +92,41 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Link to Test Series
-              <span className="text-xs text-gray-500 ml-1">(optional — enables quizzes and gates access via existing purchases)</span>
-            </label>
-            <select
-              value={testSeriesId}
-              onChange={(e) => setTestSeriesId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">None — video/document only course</option>
-              {testSeriesOptions.map((ts) => (
-                <option key={ts.id} value={ts.id}>{ts.name}</option>
-              ))}
-            </select>
-          </div>
+          {pricingMode === 'private_educator' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Price (₹)
+                <span className="text-xs text-gray-500 ml-1">(optional — leave blank or 0 for a free course)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="0"
+              />
+            </div>
+          )}
+          {pricingMode !== 'private_educator' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link to Test Series
+                <span className="text-xs text-gray-500 ml-1">(optional — enables quizzes and gates access via existing purchases)</span>
+              </label>
+              <select
+                value={testSeriesId}
+                onChange={(e) => setTestSeriesId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">None — video/document only course</option>
+                {testSeriesOptions.map((ts) => (
+                  <option key={ts.id} value={ts.id}>{ts.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="border-t pt-4 flex space-x-3">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
               Cancel

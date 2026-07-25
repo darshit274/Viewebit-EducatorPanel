@@ -10,6 +10,7 @@ export interface Educator {
   institution_id?: number | null;
   branch_id?: number | null;
   department_id?: number | null;
+  institution?: { id: number; pricing_mode: 'school' | 'private_educator' | 'coaching_center' } | null;
   created_at?: string;
   last_login?: string;
 }
@@ -85,7 +86,7 @@ export interface Course {
   thumbnail_url?: string | null;
   status: CourseStatus;
   completion_threshold_percent: number;
-  testSeries?: { id: number; uuid: string; name: string };
+  testSeries?: { id: number; uuid: string; name: string; price?: number; pricing_type?: string; educator_id?: string | null };
   modules?: CourseModule[];
   studentCount?: number;
   created_at?: string;
