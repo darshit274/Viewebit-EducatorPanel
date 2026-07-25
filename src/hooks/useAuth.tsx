@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Educator } from '../types';
 import { authService } from '../services/auth';
+import { STORAGE_KEYS } from '../config/constants';
 
 interface AuthContextType {
   educator: Educator | null;
@@ -26,6 +27,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEducator(currentEducator);
             setIsAuthenticated(true);
           }
+          // The cached educator (from login) doesn't include institution —
+          // refresh with the full profile so pricing_mode-gated UI (e.g. the
+          // course price field) has what it needs.
+          const profile = await authService.getProfile();
+          setEducator(profile);
+          sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(profile));
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
