@@ -37,6 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Auth initialization error:', error);
         authService.logout();
+        setEducator(null);
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
