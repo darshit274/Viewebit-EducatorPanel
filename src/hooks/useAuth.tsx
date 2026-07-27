@@ -32,13 +32,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // course price field) has what it needs.
           const profile = await authService.getProfile();
           setEducator(profile);
+          // A successful getProfile() is itself proof the session is valid, so
+          // set this unconditionally here too (not just in the currentEducator
+          // branch above) — that branch is skipped entirely, leaving this
+          // stuck false, if sessionStorage held corrupt/unparsable JSON.
+          setIsAuthenticated(true);
           sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(profile));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Auth initialization error:', error);
-        authService.logout();
-        setEducator(null);
-        setIsAuthenticated(false);
+        // 401s are already handled by the axios response interceptor in
+        // api.ts (it clears storage and hard-navigates), so only tear down
+        // auth state here for non-401 failures that mean the session itself
+        // is invalid. A network blip / 500 / timeout on getProfile() during
+        // a page refresh shouldn't force a re-login — leave existing state
+        // (from sessionStorage, set above) in place.
+        if (error?.response?.status === 401) {
+          setEducator(null);
+          setIsAuthenticated(false);
+        }
       } finally {
         setIsLoading(false);
       }

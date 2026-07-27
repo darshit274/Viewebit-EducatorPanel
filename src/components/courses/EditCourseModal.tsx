@@ -18,6 +18,11 @@ export const EditCourseModal: React.FC<EditCourseModalProps> = ({ isOpen, onClos
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
+  // A linked test series may be owned by an admin or another educator (e.g. a
+  // coaching-center-created series shared onto this course); pricing on those
+  // is out of this educator's control and submitting a price for them is a
+  // guaranteed 400 on the backend.
+  const canEditPrice = !course?.testSeries || course.testSeries.educator_id === educator?.id;
 
   useEffect(() => {
     if (isOpen && course) {
@@ -39,7 +44,7 @@ export const EditCourseModal: React.FC<EditCourseModalProps> = ({ isOpen, onClos
       await coursesService.updateCourse(course.uuid, {
         title,
         description: description || undefined,
-        ...(pricingMode === 'private_educator' ? { price: price ? parseFloat(price) : 0 } : {}),
+        ...(pricingMode === 'private_educator' && canEditPrice && price !== '' ? { price: parseFloat(price) } : {}),
       });
       toast.success('Course updated');
       onSuccess();
@@ -78,21 +83,30 @@ export const EditCourseModal: React.FC<EditCourseModalProps> = ({ isOpen, onClos
             />
           </div>
           {pricingMode === 'private_educator' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price (₹)
-                <span className="text-xs text-gray-500 ml-1">(0 for a free course)</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="0"
-              />
-            </div>
+            canEditPrice ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Price (₹)
+                  <span className="text-xs text-gray-500 ml-1">(0 for a free course)</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="0"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price (₹)</label>
+                <p className="text-sm text-gray-500 px-3 py-2 bg-gray-50 rounded-md">
+                  Price is set by another owner and can't be changed here.
+                </p>
+              </div>
+            )
           )}
           <div className="border-t pt-4 flex space-x-3">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
