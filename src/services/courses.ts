@@ -1,5 +1,5 @@
 import api from './api';
-import { Course, CourseModule, Lesson, LessonType, TestSeriesOption, QuizCategoryOption, PdfOption } from '../types';
+import { Course, CourseModule, Lesson, LessonType, TestSeriesOption, QuizCategoryOption, PdfOption, CourseCategoryOption, AssignmentOption, LiveSessionOption } from '../types';
 
 export const coursesService = {
   getMyCourses: async (): Promise<{ success: boolean; data: Course[] }> => {
@@ -12,13 +12,30 @@ export const coursesService = {
     return response.data;
   },
 
-  createCourse: async (data: { title: string; description?: string; test_series_id?: number | null; price?: number }) => {
+  createCourse: async (data: { title: string; description?: string; test_series_id?: number | null; price?: number; category_ids?: number[] }) => {
     const response = await api.post('/educator/courses', data);
     return response.data;
   },
 
-  updateCourse: async (uuid: string, data: Partial<Course> & { price?: number }) => {
+  updateCourse: async (uuid: string, data: Partial<Course> & { price?: number; category_ids?: number[] }) => {
     const response = await api.put(`/educator/courses/${uuid}`, data);
+    return response.data;
+  },
+
+  getCourseCategories: async (): Promise<{ success: boolean; data: CourseCategoryOption[] }> => {
+    const response = await api.get('/educator/courses/categories');
+    return response.data;
+  },
+
+  createCourseCategory: async (name: string): Promise<{ success: boolean; data: CourseCategoryOption }> => {
+    const response = await api.post('/educator/courses/categories', { name });
+    return response.data;
+  },
+
+  uploadThumbnail: async (uuid: string, file: File): Promise<{ success: boolean; data: { thumbnail_url: string } }> => {
+    const formData = new FormData();
+    formData.append('thumbnail', file);
+    const response = await api.post(`/educator/courses/${uuid}/thumbnail`, formData);
     return response.data;
   },
 
@@ -44,6 +61,16 @@ export const coursesService = {
 
   getAvailablePdfs: async (): Promise<{ success: boolean; data: PdfOption[] }> => {
     const response = await api.get('/educator/courses/available-pdfs');
+    return response.data;
+  },
+
+  getAvailableAssignments: async (courseId: number): Promise<{ success: boolean; data: AssignmentOption[] }> => {
+    const response = await api.get('/educator/courses/available-assignments', { params: { course_id: courseId } });
+    return response.data;
+  },
+
+  getAvailableLiveSessions: async (courseId: number, provider?: string): Promise<{ success: boolean; data: LiveSessionOption[] }> => {
+    const response = await api.get('/educator/courses/available-live-sessions', { params: { course_id: courseId, provider } });
     return response.data;
   },
 
@@ -76,6 +103,8 @@ export const coursesService = {
       content_html?: string;
       pdf_id?: string;
       category_id?: number;
+      live_session_id?: number;
+      assignment_id?: number;
       duration_minutes?: number;
       is_free_preview?: boolean;
     }
@@ -97,6 +126,8 @@ export const coursesService = {
       content_html?: string;
       pdf_id?: string;
       category_id?: number;
+      live_session_id?: number;
+      assignment_id?: number;
       duration_minutes?: number;
       is_free_preview?: boolean;
     }

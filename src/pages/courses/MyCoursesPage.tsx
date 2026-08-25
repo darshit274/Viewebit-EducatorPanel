@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Users, Pencil, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, Users, Eye, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { EditCourseModal } from '../../components/courses/EditCourseModal';
+import { RichTextEditor } from '../../components/courses/RichTextEditor';
+import { CourseCategoryPicker } from '../../components/courses/CourseCategoryPicker';
+import { CourseImageUpload } from '../../components/courses/CourseImageUpload';
 import { coursesService } from '../../services/courses';
 import { useAuth } from '../../hooks/useAuth';
 import { Course, TestSeriesOption } from '../../types';
+import { stripHtml } from '../../utils/stripHtml';
 
 const STATUS_BADGE: Record<Course['status'], string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -28,6 +32,9 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
   const [description, setDescription] = useState('');
   const [testSeriesId, setTestSeriesId] = useState('');
   const [price, setPrice] = useState('');
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [testSeriesOptions, setTestSeriesOptions] = useState<TestSeriesOption[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -38,6 +45,9 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
       setDescription('');
       setTestSeriesId('');
       setPrice('');
+      setCategoryIds([]);
+      setThumbnailPreview(null);
+      setThumbnailFile(null);
     }
   }, [isOpen]);
 
@@ -53,10 +63,19 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
         title,
         description: description || undefined,
         test_series_id: testSeriesId ? parseInt(testSeriesId) : null,
+        category_ids: categoryIds,
         ...(pricingMode === 'private_educator' && price ? { price: parseFloat(price) } : {}),
       });
+      const uuid = response.data.uuid;
+      if (thumbnailFile) {
+        try {
+          await coursesService.uploadThumbnail(uuid, thumbnailFile);
+        } catch {
+          toast.error('Course created, but the featured image failed to upload — you can retry from Edit');
+        }
+      }
       toast.success('Course created successfully');
-      onSuccess(response.data.uuid);
+      onSuccess(uuid);
       onClose();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to create course');
@@ -69,9 +88,9 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Create Course</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Course Title *</label>
             <input
@@ -83,30 +102,34 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({ isOpen, onClose, 
               required
             />
           </div>
+
+          <CourseImageUpload value={thumbnailPreview} onChange={setThumbnailPreview} onFileSelected={setThumbnailFile} />
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
+            <RichTextEditor value={description} onChange={setDescription} placeholder="Describe what students will learn in this course..." />
           </div>
+
+          <CourseCategoryPicker selectedIds={categoryIds} onChange={setCategoryIds} />
+
           {pricingMode === 'private_educator' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price (₹)
-                <span className="text-xs text-gray-500 ml-1">(optional — leave blank or 0 for a free course)</span>
+              <label className="block text-base font-semibold text-gray-900 mb-2">
+                Price
+                <span className="text-xs font-normal text-gray-500 ml-1">(optional — leave blank or 0 for a free course)</span>
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="0"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2.5 text-lg font-medium border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="0"
+                />
+              </div>
             </div>
           )}
           {pricingMode !== 'private_educator' && (
@@ -218,7 +241,7 @@ export const MyCoursesPage: React.FC = () => {
               >
                 <div>
                   <h4 className="text-lg font-medium text-gray-900">{course.title}</h4>
-                  <p className="text-sm text-gray-600">{course.description}</p>
+                  <p className="text-sm text-gray-600 truncate max-w-xl">{stripHtml(course.description)}</p>
                   <div className="flex items-center space-x-4 mt-1">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE[course.status]}`}>
                       {course.status}
@@ -233,16 +256,23 @@ export const MyCoursesPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); setEditCourse(course); }} className="p-2 text-gray-400 hover:text-primary-600">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/courses/${course.uuid}/builder`); }}
+                    className="p-2 text-gray-400 hover:text-primary-600"
+                    title="View"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setEditCourse(course); }} className="p-2 text-gray-400 hover:text-primary-600" title="Edit">
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmModal({ isOpen: true, course, loading: false }); }}
                     className="p-2 text-gray-400 hover:text-red-600"
+                    title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
-                  <button className="btn-secondary text-sm" onClick={(e) => e.stopPropagation()}>Manage</button>
                 </div>
               </div>
             ))}

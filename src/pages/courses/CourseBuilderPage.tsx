@@ -1,195 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Pencil, ChevronUp, ChevronDown, Video, FileText, HelpCircle, Radio } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Pencil, ChevronUp, ChevronDown, AlignLeft, Video, Radio, FileText, Headphones, HelpCircle, Users, Webcam, ClipboardList } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { EditCourseModal } from '../../components/courses/EditCourseModal';
+import { ContentTypePicker, ContentTypeSelection } from '../../components/courses/ContentTypePicker';
+import { LessonContentModal } from '../../components/courses/LessonContentModal';
 import { coursesService } from '../../services/courses';
-import { Course, CourseModule, Lesson, LessonType, QuizCategoryOption, PdfOption } from '../../types';
+import { Course, CourseModule, Lesson, LessonType } from '../../types';
+import { stripHtml } from '../../utils/stripHtml';
 
 const LESSON_TYPE_ICON: Record<LessonType, React.ElementType> = {
   video: Video,
   document: FileText,
+  text: AlignLeft,
+  pdf: FileText,
+  audio: Headphones,
   quiz: HelpCircle,
   live: Radio,
+  assignment: ClipboardList,
 };
 
-interface LessonFormProps {
-  moduleUuid: string;
-  onCreated: () => void;
-  onCancel: () => void;
+const LIVE_PROVIDER_ICON: Record<string, React.ElementType> = {
+  google_meet: Users,
+  zoom: Webcam,
+  jitsi: Radio,
+  other: Radio,
+};
+
+function lessonIcon(lesson: Lesson): React.ElementType {
+  if (lesson.lesson_type === 'live' && lesson.liveSession) {
+    return LIVE_PROVIDER_ICON[lesson.liveSession.meeting_provider] || Radio;
+  }
+  return LESSON_TYPE_ICON[lesson.lesson_type] || FileText;
 }
-
-const LessonForm: React.FC<LessonFormProps> = ({ moduleUuid, onCreated, onCancel }) => {
-  const [title, setTitle] = useState('');
-  const [lessonType, setLessonType] = useState<LessonType>('video');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [contentHtml, setContentHtml] = useState('');
-  const [pdfId, setPdfId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [isFreePreview, setIsFreePreview] = useState(false);
-  const [quizCategories, setQuizCategories] = useState<QuizCategoryOption[]>([]);
-  const [pdfs, setPdfs] = useState<PdfOption[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    coursesService.getAvailableQuizCategories().then((res) => setQuizCategories(res.data || [])).catch(() => setQuizCategories([]));
-    coursesService.getAvailablePdfs().then((res) => setPdfs(res.data || [])).catch(() => setPdfs([]));
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-    if (lessonType === 'quiz' && !categoryId) {
-      toast.error('Select a quiz category for this quiz lesson');
-      return;
-    }
-    if (lessonType === 'document' && !pdfId && !contentHtml.trim()) {
-      toast.error('Select a PDF or write document content');
-      return;
-    }
-    if (lessonType === 'video' && !videoUrl.trim()) {
-      toast.error('Video URL is required');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await coursesService.createLesson(moduleUuid, {
-        title,
-        lesson_type: lessonType,
-        video_url: lessonType === 'video' ? videoUrl : undefined,
-        content_html: lessonType === 'document' ? contentHtml || undefined : undefined,
-        pdf_id: lessonType === 'document' && pdfId ? pdfId : undefined,
-        category_id: lessonType === 'quiz' && categoryId ? parseInt(categoryId) : undefined,
-        is_free_preview: isFreePreview,
-      });
-      toast.success('Lesson added');
-      onCreated();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add lesson');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3 mt-2">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Lesson Title *</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Type *</label>
-          <select
-            value={lessonType}
-            onChange={(e) => setLessonType(e.target.value as LessonType)}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="video">Video</option>
-            <option value="document">Document</option>
-            <option value="quiz">Quiz (Quiz Category)</option>
-            <option value="live">Live Session</option>
-          </select>
-        </div>
-      </div>
-
-      {lessonType === 'video' && (
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Video URL *</label>
-          <input
-            type="text"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
-      )}
-
-      {lessonType === 'document' && (
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Use an existing PDF</label>
-            <select
-              value={pdfId}
-              onChange={(e) => setPdfId(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">None</option>
-              {pdfs.map((pdf) => (
-                <option key={pdf.id} value={pdf.id}>{pdf.title}</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Don't see your PDF? Upload one in <a href="/pdfs" className="text-primary-600 hover:underline">PDF Library</a> first.
-            </p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Or write content directly</label>
-            <textarea
-              value={contentHtml}
-              onChange={(e) => setContentHtml(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-        </div>
-      )}
-
-      {lessonType === 'quiz' && (
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Quiz Category *</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          >
-            <option value="">Select a quiz category</option>
-            {quizCategories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Don't see the quiz you need? Build one in <a href="/quizzes" className="text-primary-600 hover:underline">Quiz Categories</a> first.
-          </p>
-        </div>
-      )}
-
-      {lessonType === 'live' && (
-        <p className="text-xs text-gray-500">
-          Live sessions can be scheduled and linked from the Live Sessions tab once created.
-        </p>
-      )}
-
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={isFreePreview} onChange={(e) => setIsFreePreview(e.target.checked)} className="h-4 w-4 text-primary-600 rounded" />
-        <span className="text-sm text-gray-700">Free preview (visible even to non-enrolled students)</span>
-      </label>
-
-      <div className="flex gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
-          Cancel
-        </button>
-        <button type="submit" className="px-3 py-1.5 text-sm text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
-          {loading ? 'Adding...' : 'Add Lesson'}
-        </button>
-      </div>
-    </form>
-  );
-};
 
 interface EditModuleModalProps {
   isOpen: boolean;
@@ -259,180 +104,14 @@ const EditModuleModal: React.FC<EditModuleModalProps> = ({ isOpen, onClose, onSu
   );
 };
 
-interface EditLessonModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  lesson: Lesson | null;
-}
-
-const EditLessonModal: React.FC<EditLessonModalProps> = ({ isOpen, onClose, onSuccess, lesson }) => {
-  const [title, setTitle] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [contentHtml, setContentHtml] = useState('');
-  const [pdfId, setPdfId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [isFreePreview, setIsFreePreview] = useState(false);
-  const [quizCategories, setQuizCategories] = useState<QuizCategoryOption[]>([]);
-  const [pdfs, setPdfs] = useState<PdfOption[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      coursesService.getAvailableQuizCategories().then((res) => setQuizCategories(res.data || [])).catch(() => setQuizCategories([]));
-      coursesService.getAvailablePdfs().then((res) => setPdfs(res.data || [])).catch(() => setPdfs([]));
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && lesson) {
-      setTitle(lesson.title);
-      setVideoUrl(lesson.video_url || '');
-      setContentHtml(lesson.content_html || '');
-      setPdfId(lesson.pdf_id || '');
-      setCategoryId(lesson.category_id ? String(lesson.category_id) : '');
-      setIsFreePreview(lesson.is_free_preview);
-    }
-  }, [isOpen, lesson]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lesson) return;
-    if (!title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-    if (lesson.lesson_type === 'video' && !videoUrl.trim()) {
-      toast.error('Video URL is required');
-      return;
-    }
-    setLoading(true);
-    try {
-      await coursesService.updateLesson(lesson.uuid, {
-        title,
-        video_url: lesson.lesson_type === 'video' ? videoUrl : undefined,
-        content_html: lesson.lesson_type === 'document' ? contentHtml || undefined : undefined,
-        pdf_id: lesson.lesson_type === 'document' && pdfId ? pdfId : undefined,
-        category_id: lesson.lesson_type === 'quiz' && categoryId ? parseInt(categoryId) : undefined,
-        is_free_preview: isFreePreview,
-      });
-      toast.success('Lesson updated');
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update lesson');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isOpen || !lesson) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Lesson</h2>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Lesson Title *</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              required
-            />
-          </div>
-
-          {lesson.lesson_type === 'video' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Video URL *</label>
-              <input
-                type="text"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-          )}
-
-          {lesson.lesson_type === 'document' && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Use an existing PDF</label>
-                <select
-                  value={pdfId}
-                  onChange={(e) => setPdfId(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">None</option>
-                  {pdfs.map((pdf) => (
-                    <option key={pdf.id} value={pdf.id}>{pdf.title}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Or write content directly</label>
-                <textarea
-                  value={contentHtml}
-                  onChange={(e) => setContentHtml(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {lesson.lesson_type === 'quiz' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Quiz Category *</label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                required
-              >
-                <option value="">Select a quiz category</option>
-                {quizCategories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {lesson.lesson_type === 'live' && (
-            <p className="text-xs text-gray-500">
-              Live sessions can be scheduled and linked from the Live Sessions tab once created.
-            </p>
-          )}
-
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={isFreePreview} onChange={(e) => setIsFreePreview(e.target.checked)} className="h-4 w-4 text-primary-600 rounded" />
-            <span className="text-sm text-gray-700">Free preview (visible even to non-enrolled students)</span>
-          </label>
-
-          <div className="border-t pt-4 flex space-x-3">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
-              Cancel
-            </button>
-            <button type="submit" className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 export const CourseBuilderPage: React.FC = () => {
   const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [newModuleTitle, setNewModuleTitle] = useState('');
-  const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
+  const [pickerModuleUuid, setPickerModuleUuid] = useState<string | null>(null);
+  const [pendingContent, setPendingContent] = useState<{ moduleUuid: string; selection: ContentTypeSelection } | null>(null);
   const [showEditCourse, setShowEditCourse] = useState(false);
   const [editModule, setEditModule] = useState<CourseModule | null>(null);
   const [editLesson, setEditLesson] = useState<Lesson | null>(null);
@@ -553,7 +232,7 @@ export const CourseBuilderPage: React.FC = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
-            <p className="text-gray-600">{course.description}</p>
+            <p className="text-gray-600">{stripHtml(course.description)}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -608,7 +287,7 @@ export const CourseBuilderPage: React.FC = () => {
 
               <div className="space-y-2 pl-4">
                 {module.lessons.map((lesson, lessonIndex) => {
-                  const Icon = LESSON_TYPE_ICON[lesson.lesson_type];
+                  const Icon = lessonIcon(lesson);
                   return (
                     <div key={lesson.uuid} className="flex items-center justify-between bg-gray-50 rounded-md px-3 py-2">
                       <div className="flex items-center gap-2 text-sm text-gray-800">
@@ -637,21 +316,13 @@ export const CourseBuilderPage: React.FC = () => {
                   );
                 })}
 
-                {addingLessonToModule === module.uuid ? (
-                  <LessonForm
-                    moduleUuid={module.uuid}
-                    onCreated={() => { setAddingLessonToModule(null); loadCourse(); }}
-                    onCancel={() => setAddingLessonToModule(null)}
-                  />
-                ) : (
-                  <button
-                    onClick={() => setAddingLessonToModule(module.uuid)}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium inline-flex items-center mt-2"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add lesson
-                  </button>
-                )}
+                <button
+                  onClick={() => setPickerModuleUuid(module.uuid)}
+                  className="text-sm text-primary-600 hover:text-primary-700 font-medium inline-flex items-center mt-2"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Add New Content
+                </button>
               </div>
             </div>
           ))}
@@ -664,7 +335,30 @@ export const CourseBuilderPage: React.FC = () => {
 
       <EditCourseModal isOpen={showEditCourse} onClose={() => setShowEditCourse(false)} onSuccess={loadCourse} course={course} />
       <EditModuleModal isOpen={!!editModule} onClose={() => setEditModule(null)} onSuccess={loadCourse} module={editModule} />
-      <EditLessonModal isOpen={!!editLesson} onClose={() => setEditLesson(null)} onSuccess={loadCourse} lesson={editLesson} />
+
+      <ContentTypePicker
+        isOpen={!!pickerModuleUuid}
+        onClose={() => setPickerModuleUuid(null)}
+        onSelect={(selection) => {
+          if (pickerModuleUuid) setPendingContent({ moduleUuid: pickerModuleUuid, selection });
+          setPickerModuleUuid(null);
+        }}
+      />
+      <LessonContentModal
+        isOpen={!!pendingContent}
+        onClose={() => setPendingContent(null)}
+        onSuccess={loadCourse}
+        courseId={course.id}
+        moduleUuid={pendingContent?.moduleUuid}
+        initialSelection={pendingContent?.selection}
+      />
+      <LessonContentModal
+        isOpen={!!editLesson}
+        onClose={() => setEditLesson(null)}
+        onSuccess={loadCourse}
+        courseId={course.id}
+        lesson={editLesson}
+      />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}

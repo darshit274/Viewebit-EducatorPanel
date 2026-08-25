@@ -45,7 +45,32 @@ export interface PdfOption {
   title: string;
 }
 
-export type LessonType = 'video' | 'document' | 'quiz' | 'live';
+export interface CourseCategoryOption {
+  id: number;
+  uuid: string;
+  name: string;
+}
+
+export interface AssignmentOption {
+  id: number;
+  uuid: string;
+  title: string;
+  submission_type: 'quiz' | 'file_upload' | 'text';
+}
+
+export interface LiveSessionOption {
+  id: number;
+  uuid: string;
+  title: string;
+  meeting_provider: 'zoom' | 'google_meet' | 'jitsi' | 'other';
+  meeting_url: string;
+  scheduled_start: string;
+  status: 'scheduled' | 'live' | 'completed' | 'cancelled';
+}
+
+// 'document' is legacy (pre-split text+pdf combined type) — still readable for
+// old lessons but no longer offered when creating a new one.
+export type LessonType = 'video' | 'document' | 'text' | 'pdf' | 'audio' | 'quiz' | 'live' | 'assignment';
 
 export interface Lesson {
   id: number;
@@ -58,10 +83,13 @@ export interface Lesson {
   pdf_id?: string | null;
   category_id?: number | null;
   live_session_id?: number | null;
+  assignment_id?: number | null;
   duration_minutes?: number | null;
   display_order: number;
   is_free_preview: boolean;
   is_active: boolean;
+  liveSession?: LiveSessionOption | null;
+  assignment?: AssignmentOption | null;
 }
 
 export interface CourseModule {
@@ -87,6 +115,7 @@ export interface Course {
   status: CourseStatus;
   completion_threshold_percent: number;
   testSeries?: { id: number; uuid: string; name: string; price?: number; pricing_type?: string; educator_id?: string | null };
+  categories?: CourseCategoryOption[];
   modules?: CourseModule[];
   studentCount?: number;
   created_at?: string;
