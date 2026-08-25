@@ -48,7 +48,7 @@ export const coursesService = {
     return response.data;
   },
 
-  createCourseQuizCategory: async (courseUuid: string, name: string): Promise<{ success: boolean; data: { id: number; uuid: string; name: string; node_type: string } }> => {
+  createCourseQuizCategory: async (courseUuid: string, name: string): Promise<{ success: boolean; data: QuizCategoryOption }> => {
     const response = await api.post(`/educator/courses/${courseUuid}/quiz-categories`, { name });
     return response.data;
   },

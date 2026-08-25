@@ -1,21 +1,26 @@
 // src/components/courses/QuizQuickBuilder.tsx
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { coursesService } from '../../services/courses';
 import { quizHierarchyService } from '../../services/quizHierarchy';
+import { QuizCategoryOption } from '../../types';
 import { QuestionFieldsForm, QuestionFieldsValue, emptyQuestionFields } from '../quizzes/QuestionFieldsForm';
 
 interface QuizQuickBuilderProps {
   courseUuid: string;
-  onCreated: (category: { id: number; uuid: string; name: string }) => void;
+  onCreated: (category: QuizCategoryOption) => void;
 }
 
 type ImportPreview = { totalRows: number; validQuestions: any[]; errors: any[] } | null;
 
 export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, onCreated }) => {
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<{ id: number; uuid: string; name: string } | null>(null);
+  const [category, setCategory] = useState<QuizCategoryOption | null>(null);
   const [creating, setCreating] = useState(false);
+  // Guards against onCreated firing more than once for a single mount — it's meant to
+  // be reported to the parent exactly once, the first time the quiz becomes usable
+  // (i.e. has at least one question), not on every subsequent question add.
+  const reportedRef = useRef(false);
 
   const [mode, setMode] = useState<'manual' | 'import'>('manual');
   const [fields, setFields] = useState<QuestionFieldsValue>(emptyQuestionFields());
@@ -26,6 +31,7 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
   const [importPreview, setImportPreview] = useState<ImportPreview>(null);
   const [parsing, setParsing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState<'excel' | 'csv' | null>(null);
 
   const handleCreateCategory = async () => {
     if (!name.trim()) {
@@ -35,13 +41,27 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
     setCreating(true);
     try {
       const res = await coursesService.createCourseQuizCategory(courseUuid, name);
+      // Intentionally NOT calling onCreated here: the parent should only learn about
+      // this category once it's actually usable, i.e. once it has ≥1 question (see
+      // handleAddQuestion / handleConfirmImport below). An empty category shouldn't be
+      // selectable/saveable by the parent lesson form.
       setCategory(res.data);
-      onCreated(res.data);
       toast.success('Quiz created — now add questions below');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to create quiz');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDownloadTemplate = async (format: 'excel' | 'csv') => {
+    setDownloadingTemplate(format);
+    try {
+      await quizHierarchyService.downloadImportTemplate(format);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to download template');
+    } finally {
+      setDownloadingTemplate(null);
     }
   };
 
@@ -63,9 +83,14 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
         explanation: fields.explanation || undefined,
         marks: parseInt(fields.marks) || 1,
       }]);
+      const wasEmpty = addedCount === 0;
       setAddedCount((n) => n + 1);
       setFields(emptyQuestionFields());
       toast.success('Question added');
+      if (wasEmpty && !reportedRef.current) {
+        reportedRef.current = true;
+        onCreated(category);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to add question');
     } finally {
@@ -94,10 +119,15 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
     setConfirming(true);
     try {
       const res = await quizHierarchyService.bulkCreateQuestions(category.uuid, importPreview.validQuestions);
+      const wasEmpty = addedCount === 0;
       setAddedCount((n) => n + res.data.created);
       toast.success(`${res.data.created} questions imported`);
       setImportPreview(null);
       setImportFile(null);
+      if (wasEmpty && res.data.created > 0 && !reportedRef.current) {
+        reportedRef.current = true;
+        onCreated(category);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to import questions');
     } finally {
@@ -158,8 +188,22 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
           {mode === 'import' && (
             <div className="space-y-3">
               <div className="flex gap-3 text-xs">
-                <a href={quizHierarchyService.importTemplateUrl('excel')} className="text-primary-600 hover:underline">Download Excel Template</a>
-                <a href={quizHierarchyService.importTemplateUrl('csv')} className="text-primary-600 hover:underline">Download CSV Template</a>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate('excel')}
+                  disabled={downloadingTemplate !== null}
+                  className="text-primary-600 hover:underline disabled:opacity-50"
+                >
+                  {downloadingTemplate === 'excel' ? 'Downloading...' : 'Download Excel Template'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate('csv')}
+                  disabled={downloadingTemplate !== null}
+                  className="text-primary-600 hover:underline disabled:opacity-50"
+                >
+                  {downloadingTemplate === 'csv' ? 'Downloading...' : 'Download CSV Template'}
+                </button>
               </div>
               <input
                 type="file"

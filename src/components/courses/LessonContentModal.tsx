@@ -85,11 +85,19 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
   const [mediaMode, setMediaMode] = useState<'url' | 'upload'>('url');
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [justUploaded, setJustUploaded] = useState(false);
+  // True once the inline QuizQuickBuilder (lesson-level quiz) has reported a usable
+  // (≥1 question) category — used to disable the "Use Existing" toggle so the user
+  // can't accidentally unmount it and lose the in-progress quiz.
+  const [quizCreatedInline, setQuizCreatedInline] = useState(false);
 
   const [newAssignmentSubmissionType, setNewAssignmentSubmissionType] = useState<'text' | 'file_upload' | 'quiz'>('text');
+  const [newAssignmentCategoryId, setNewAssignmentCategoryId] = useState('');
   const [newAssignmentMaxPoints, setNewAssignmentMaxPoints] = useState('100');
   const [newAssignmentDueDate, setNewAssignmentDueDate] = useState('');
   const [creatingAssignment, setCreatingAssignment] = useState(false);
+  // Same idea as quizCreatedInline, but for the quiz embedded inside the "Create New
+  // Assignment" panel — disables the Submission Type select once its quiz is usable.
+  const [assignmentQuizCreatedInline, setAssignmentQuizCreatedInline] = useState(false);
 
   useEffect(() => {
     setOptionsLoading(true);
@@ -192,13 +200,26 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
 
   const youtubeEmbed = lessonType === 'video' ? toYoutubeEmbed(mediaUrl) : null;
 
+  // Many nested components (PdfQuickUpload, QuizQuickBuilder, QuestionFieldsForm) render
+  // single-line text inputs inside this one outer form. Without this guard, pressing Enter
+  // in any of them triggers the browser's default "submit nearest form" behavior — saving
+  // and closing the whole lesson and silently discarding in-progress nested state (e.g. a
+  // half-typed quiz question). Textareas and rich-text (contentEditable) areas are exempt
+  // since Enter there is expected to insert a newline.
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+    e.preventDefault();
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">
           {lesson ? 'Edit Content' : `Add ${lessonType === 'live' ? PROVIDER_LABEL[meetingProvider] : lessonType[0].toUpperCase() + lessonType.slice(1)} Content`}
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
             <input
@@ -354,7 +375,13 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
           {lessonType === 'quiz' && (
             <div className="space-y-3">
               <div className="flex gap-2 text-xs">
-                <button type="button" onClick={() => setQuizMode('existing')} className={`px-2 py-1 rounded ${quizMode === 'existing' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                <button
+                  type="button"
+                  onClick={() => setQuizMode('existing')}
+                  disabled={quizCreatedInline}
+                  title={quizCreatedInline ? 'A quiz is being created below — switching would discard it' : undefined}
+                  className={`px-2 py-1 rounded ${quizMode === 'existing' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'} ${quizCreatedInline ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
                   Use Existing
                 </button>
                 <button type="button" onClick={() => setQuizMode('new')} className={`px-2 py-1 rounded ${quizMode === 'new' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
@@ -382,7 +409,11 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
               {quizMode === 'new' && (
                 <QuizQuickBuilder
                   courseUuid={courseUuid}
-                  onCreated={(cat) => setCategoryId(String(cat.id))}
+                  onCreated={(cat) => {
+                    setQuizCategories((prev) => [cat, ...prev]);
+                    setCategoryId(String(cat.id));
+                    setQuizCreatedInline(true);
+                  }}
                 />
               )}
             </div>
@@ -423,7 +454,9 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
                     <select
                       value={newAssignmentSubmissionType}
                       onChange={(e) => setNewAssignmentSubmissionType(e.target.value as any)}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      disabled={assignmentQuizCreatedInline}
+                      title={assignmentQuizCreatedInline ? 'A quiz is being created below — switching would discard it' : undefined}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="text">Text answer</option>
                       <option value="file_upload">File upload</option>
@@ -432,7 +465,13 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
                   </div>
 
                   {newAssignmentSubmissionType === 'quiz' && (
-                    <QuizQuickBuilder courseUuid={courseUuid} onCreated={(cat) => setCategoryId(String(cat.id))} />
+                    <QuizQuickBuilder
+                      courseUuid={courseUuid}
+                      onCreated={(cat) => {
+                        setNewAssignmentCategoryId(String(cat.id));
+                        setAssignmentQuizCreatedInline(true);
+                      }}
+                    />
                   )}
 
                   <div className="grid grid-cols-2 gap-3">
@@ -458,14 +497,14 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
 
                   <button
                     type="button"
-                    disabled={creatingAssignment || !title.trim() || (newAssignmentSubmissionType === 'quiz' && !categoryId)}
+                    disabled={creatingAssignment || !title.trim() || (newAssignmentSubmissionType === 'quiz' && !newAssignmentCategoryId)}
                     onClick={async () => {
                       setCreatingAssignment(true);
                       try {
                         const res = await assignmentsService.createAssignment(courseUuid, {
                           title,
                           submission_type: newAssignmentSubmissionType,
-                          category_id: newAssignmentSubmissionType === 'quiz' ? parseInt(categoryId) : undefined,
+                          category_id: newAssignmentSubmissionType === 'quiz' ? parseInt(newAssignmentCategoryId) : undefined,
                           max_points: parseInt(newAssignmentMaxPoints) || 100,
                           due_date: newAssignmentDueDate || undefined,
                         });
