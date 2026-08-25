@@ -82,6 +82,8 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
   const [pdfMode, setPdfMode] = useState<'existing' | 'new'>('existing');
   const [quizMode, setQuizMode] = useState<'existing' | 'new'>('existing');
   const [assignmentMode, setAssignmentMode] = useState<'existing' | 'new'>('existing');
+  const [mediaMode, setMediaMode] = useState<'url' | 'upload'>('url');
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const [newAssignmentSubmissionType, setNewAssignmentSubmissionType] = useState<'text' | 'file_upload' | 'quiz'>('text');
   const [newAssignmentMaxPoints, setNewAssignmentMaxPoints] = useState('100');
@@ -241,15 +243,57 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
           )}
 
           {(lessonType === 'video' || lessonType === 'audio') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{lessonType === 'video' ? 'Video URL *' : 'Audio URL *'}</label>
-              <input
-                type="text"
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
+            <div className="space-y-3">
+              <div className="flex gap-2 text-xs">
+                <button type="button" onClick={() => setMediaMode('url')} className={`px-2 py-1 rounded ${mediaMode === 'url' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Paste URL
+                </button>
+                <button type="button" onClick={() => setMediaMode('upload')} className={`px-2 py-1 rounded ${mediaMode === 'upload' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Upload File
+                </button>
+              </div>
+
+              {mediaMode === 'url' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{lessonType === 'video' ? 'Video URL *' : 'Audio URL *'}</label>
+                  <input
+                    type="text"
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              )}
+
+              {mediaMode === 'upload' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{lessonType === 'video' ? 'Video File *' : 'Audio File *'}</label>
+                  <input
+                    type="file"
+                    accept={lessonType === 'video' ? 'video/*' : 'audio/*'}
+                    disabled={uploadingMedia}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadingMedia(true);
+                      try {
+                        const res = await coursesService.uploadLessonMedia(courseUuid, lessonType as 'video' | 'audio', file);
+                        setMediaUrl(res.data.url);
+                        toast.success('File uploaded');
+                      } catch (error: any) {
+                        toast.error(error.response?.data?.message || 'Failed to upload file');
+                      } finally {
+                        setUploadingMedia(false);
+                      }
+                    }}
+                    className="w-full text-sm text-gray-700"
+                  />
+                  {uploadingMedia && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+                  {mediaUrl && !uploadingMedia && <p className="text-xs text-green-600 mt-1">Uploaded — you can replace it by choosing another file.</p>}
+                </div>
+              )}
+
               {youtubeEmbed && (
                 <div className="mt-3 aspect-video rounded-md overflow-hidden border border-gray-200">
                   <iframe src={youtubeEmbed} className="w-full h-full" allowFullScreen title="Video preview" />
