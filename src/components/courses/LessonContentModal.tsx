@@ -5,6 +5,9 @@ import { liveSessionsService, MeetingProvider } from '../../services/liveSession
 import { Lesson, LessonType, PdfOption, QuizCategoryOption, AssignmentOption, LiveSessionOption } from '../../types';
 import { RichTextEditor } from './RichTextEditor';
 import { ContentTypeSelection } from './ContentTypePicker';
+import { PdfQuickUpload } from './PdfQuickUpload';
+import { QuizQuickBuilder } from './QuizQuickBuilder';
+import { assignmentsService } from '../../services/assignments';
 
 const PROVIDER_LABEL: Record<MeetingProvider, string> = {
   jitsi: 'Live Stream',
@@ -23,13 +26,14 @@ interface LessonContentModalProps {
   onClose: () => void;
   onSuccess: () => void;
   courseId: number;
+  courseUuid: string;
   moduleUuid?: string; // required for create
   lesson?: Lesson | null; // present for edit
   initialSelection?: ContentTypeSelection | null; // present for create
 }
 
 export const LessonContentModal: React.FC<LessonContentModalProps> = ({
-  isOpen, onClose, onSuccess, courseId, moduleUuid, lesson, initialSelection,
+  isOpen, onClose, onSuccess, courseId, courseUuid, moduleUuid, lesson, initialSelection,
 }) => {
   if (!isOpen) return null;
   const key = lesson ? `edit-${lesson.uuid}` : `create-${initialSelection?.lessonType}-${initialSelection?.meetingProvider ?? ''}`;
@@ -39,6 +43,7 @@ export const LessonContentModal: React.FC<LessonContentModalProps> = ({
       onClose={onClose}
       onSuccess={onSuccess}
       courseId={courseId}
+      courseUuid={courseUuid}
       moduleUuid={moduleUuid}
       lesson={lesson ?? null}
       initialSelection={initialSelection ?? null}
@@ -47,7 +52,7 @@ export const LessonContentModal: React.FC<LessonContentModalProps> = ({
 };
 
 const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
-  onClose, onSuccess, courseId, moduleUuid, lesson, initialSelection,
+  onClose, onSuccess, courseId, courseUuid, moduleUuid, lesson, initialSelection,
 }) => {
   const lessonType: LessonType = lesson?.lesson_type ?? initialSelection?.lessonType ?? 'text';
   const meetingProvider: MeetingProvider = (lesson?.liveSession?.meeting_provider as MeetingProvider) ?? initialSelection?.meetingProvider ?? 'other';
@@ -73,6 +78,15 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
   const [newSessionStart, setNewSessionStart] = useState('');
   const [newSessionUrl, setNewSessionUrl] = useState('');
   const [creatingSession, setCreatingSession] = useState(false);
+
+  const [pdfMode, setPdfMode] = useState<'existing' | 'new'>('existing');
+  const [quizMode, setQuizMode] = useState<'existing' | 'new'>('existing');
+  const [assignmentMode, setAssignmentMode] = useState<'existing' | 'new'>('existing');
+
+  const [newAssignmentSubmissionType, setNewAssignmentSubmissionType] = useState<'text' | 'file_upload' | 'quiz'>('text');
+  const [newAssignmentMaxPoints, setNewAssignmentMaxPoints] = useState('100');
+  const [newAssignmentDueDate, setNewAssignmentDueDate] = useState('');
+  const [creatingAssignment, setCreatingAssignment] = useState(false);
 
   useEffect(() => {
     setOptionsLoading(true);
@@ -251,62 +265,181 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
           )}
 
           {lessonType === 'pdf' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">PDF *</label>
-              <select
-                value={pdfId}
-                onChange={(e) => setPdfId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                disabled={optionsLoading}
-              >
-                <option value="">{optionsLoading ? 'Loading...' : 'Select a PDF'}</option>
-                {pdfs.map((pdf) => (
-                  <option key={pdf.id} value={pdf.id}>{pdf.title}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Don't see your PDF? Upload one in <a href="/pdfs" className="text-primary-600 hover:underline">PDF Library</a> first.
-              </p>
+            <div className="space-y-3">
+              <div className="flex gap-2 text-xs">
+                <button type="button" onClick={() => setPdfMode('existing')} className={`px-2 py-1 rounded ${pdfMode === 'existing' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Use Existing
+                </button>
+                <button type="button" onClick={() => setPdfMode('new')} className={`px-2 py-1 rounded ${pdfMode === 'new' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Upload New
+                </button>
+              </div>
+
+              {pdfMode === 'existing' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">PDF *</label>
+                  <select
+                    value={pdfId}
+                    onChange={(e) => setPdfId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    disabled={optionsLoading}
+                  >
+                    <option value="">{optionsLoading ? 'Loading...' : 'Select a PDF'}</option>
+                    {pdfs.map((pdf) => (
+                      <option key={pdf.id} value={pdf.id}>{pdf.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {pdfMode === 'new' && (
+                <PdfQuickUpload
+                  courseUuid={courseUuid}
+                  onUploaded={(pdf) => {
+                    setPdfs((prev) => [pdf, ...prev]);
+                    setPdfId(pdf.id);
+                    setPdfMode('existing');
+                  }}
+                />
+              )}
             </div>
           )}
 
           {lessonType === 'quiz' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quiz Category *</label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                disabled={optionsLoading}
-              >
-                <option value="">{optionsLoading ? 'Loading...' : 'Select a quiz category'}</option>
-                {quizCategories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Don't see the quiz you need? Build one in <a href="/quizzes" className="text-primary-600 hover:underline">Quiz Categories</a> first.
-              </p>
+            <div className="space-y-3">
+              <div className="flex gap-2 text-xs">
+                <button type="button" onClick={() => setQuizMode('existing')} className={`px-2 py-1 rounded ${quizMode === 'existing' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Use Existing
+                </button>
+                <button type="button" onClick={() => setQuizMode('new')} className={`px-2 py-1 rounded ${quizMode === 'new' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Create New
+                </button>
+              </div>
+
+              {quizMode === 'existing' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Quiz Category *</label>
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    disabled={optionsLoading}
+                  >
+                    <option value="">{optionsLoading ? 'Loading...' : 'Select a quiz category'}</option>
+                    {quizCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {quizMode === 'new' && (
+                <QuizQuickBuilder
+                  courseUuid={courseUuid}
+                  onCreated={(cat) => setCategoryId(String(cat.id))}
+                />
+              )}
             </div>
           )}
 
           {lessonType === 'assignment' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Assignment *</label>
-              <select
-                value={assignmentId}
-                onChange={(e) => setAssignmentId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                disabled={optionsLoading}
-              >
-                <option value="">{optionsLoading ? 'Loading...' : 'Select an assignment'}</option>
-                {assignments.map((a) => (
-                  <option key={a.id} value={a.id}>{a.title}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Don't see it? Create one in <a href="/assignments" className="text-primary-600 hover:underline">Assignments & Quizzes</a> for this course first.
-              </p>
+            <div className="space-y-3">
+              <div className="flex gap-2 text-xs">
+                <button type="button" onClick={() => setAssignmentMode('existing')} className={`px-2 py-1 rounded ${assignmentMode === 'existing' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Use Existing
+                </button>
+                <button type="button" onClick={() => setAssignmentMode('new')} className={`px-2 py-1 rounded ${assignmentMode === 'new' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}>
+                  Create New
+                </button>
+              </div>
+
+              {assignmentMode === 'existing' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Assignment *</label>
+                  <select
+                    value={assignmentId}
+                    onChange={(e) => setAssignmentId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    disabled={optionsLoading}
+                  >
+                    <option value="">{optionsLoading ? 'Loading...' : 'Select an assignment'}</option>
+                    {assignments.map((a) => (
+                      <option key={a.id} value={a.id}>{a.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {assignmentMode === 'new' && (
+                <div className="border border-gray-200 rounded-md p-3 space-y-3 bg-gray-50">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Submission Type *</label>
+                    <select
+                      value={newAssignmentSubmissionType}
+                      onChange={(e) => setNewAssignmentSubmissionType(e.target.value as any)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="text">Text answer</option>
+                      <option value="file_upload">File upload</option>
+                      <option value="quiz">Quiz</option>
+                    </select>
+                  </div>
+
+                  {newAssignmentSubmissionType === 'quiz' && (
+                    <QuizQuickBuilder courseUuid={courseUuid} onCreated={(cat) => setCategoryId(String(cat.id))} />
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Max Points</label>
+                      <input
+                        type="number"
+                        value={newAssignmentMaxPoints}
+                        onChange={(e) => setNewAssignmentMaxPoints(e.target.value)}
+                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
+                      <input
+                        type="datetime-local"
+                        value={newAssignmentDueDate}
+                        onChange={(e) => setNewAssignmentDueDate(e.target.value)}
+                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={creatingAssignment || !title.trim() || (newAssignmentSubmissionType === 'quiz' && !categoryId)}
+                    onClick={async () => {
+                      setCreatingAssignment(true);
+                      try {
+                        const res = await assignmentsService.createAssignment(courseUuid, {
+                          title,
+                          submission_type: newAssignmentSubmissionType,
+                          category_id: newAssignmentSubmissionType === 'quiz' ? parseInt(categoryId) : undefined,
+                          max_points: parseInt(newAssignmentMaxPoints) || 100,
+                          due_date: newAssignmentDueDate || undefined,
+                        });
+                        setAssignments((prev) => [res.data, ...prev]);
+                        setAssignmentId(String(res.data.id));
+                        setAssignmentMode('existing');
+                        toast.success('Assignment created');
+                      } catch (error: any) {
+                        toast.error(error.response?.data?.message || 'Failed to create assignment');
+                      } finally {
+                        setCreatingAssignment(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {creatingAssignment ? 'Creating...' : 'Create Assignment'}
+                  </button>
+                  {!title.trim() && <p className="text-xs text-gray-500">Set the lesson Title above first — the assignment reuses it.</p>}
+                </div>
+              )}
             </div>
           )}
 

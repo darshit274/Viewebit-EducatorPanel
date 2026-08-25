@@ -349,6 +349,7 @@ export const CourseBuilderPage: React.FC = () => {
         onClose={() => setPendingContent(null)}
         onSuccess={loadCourse}
         courseId={course.id}
+        courseUuid={course.uuid}
         moduleUuid={pendingContent?.moduleUuid}
         initialSelection={pendingContent?.selection}
       />
@@ -357,6 +358,7 @@ export const CourseBuilderPage: React.FC = () => {
         onClose={() => setEditLesson(null)}
         onSuccess={loadCourse}
         courseId={course.id}
+        courseUuid={course.uuid}
         lesson={editLesson}
       />
 
