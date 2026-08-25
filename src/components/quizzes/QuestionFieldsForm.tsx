@@ -24,7 +24,6 @@ export const QuestionFieldsForm: React.FC<QuestionFieldsFormProps> = ({ value, o
           onChange={(e) => onChange({ ...value, questionText: e.target.value })}
           rows={2}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-          required
         />
       </div>
 
@@ -43,7 +42,6 @@ export const QuestionFieldsForm: React.FC<QuestionFieldsFormProps> = ({ value, o
             onChange={(e) => onChange({ ...value, options: { ...value.options, [key]: e.target.value } })}
             placeholder={`Option ${key}`}
             className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
           />
         </div>
       ))}
