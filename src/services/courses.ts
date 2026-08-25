@@ -39,6 +39,28 @@ export const coursesService = {
     return response.data;
   },
 
+  uploadCoursePdf: async (courseUuid: string, title: string, file: File, description?: string): Promise<{ success: boolean; data: { id: string; title: string } }> => {
+    const formData = new FormData();
+    formData.append('title', title);
+    if (description) formData.append('description', description);
+    formData.append('file', file);
+    const response = await api.post(`/educator/courses/${courseUuid}/pdfs`, formData);
+    return response.data;
+  },
+
+  createCourseQuizCategory: async (courseUuid: string, name: string): Promise<{ success: boolean; data: { id: number; uuid: string; name: string; node_type: string } }> => {
+    const response = await api.post(`/educator/courses/${courseUuid}/quiz-categories`, { name });
+    return response.data;
+  },
+
+  uploadLessonMedia: async (courseUuid: string, kind: 'video' | 'audio', file: File): Promise<{ success: boolean; data: { url: string } }> => {
+    const formData = new FormData();
+    formData.append('kind', kind);
+    formData.append('file', file);
+    const response = await api.post(`/educator/courses/${courseUuid}/lessons/media`, formData);
+    return response.data;
+  },
+
   setCourseStatus: async (uuid: string, status: Course['status']) => {
     const response = await api.patch(`/educator/courses/${uuid}/status`, { status });
     return response.data;

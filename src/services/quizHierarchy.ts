@@ -86,6 +86,35 @@ export const quizHierarchyService = {
     return response.data;
   },
 
+  bulkCreateQuestions: async (
+    categoryUuid: string,
+    questions: {
+      question_text: string;
+      option_a: string;
+      option_b: string;
+      option_c: string;
+      option_d: string;
+      correct_answer: 'A' | 'B' | 'C' | 'D';
+      explanation?: string;
+      marks?: number;
+    }[]
+  ): Promise<{ success: boolean; data: { created: number; questions: QuizQuestion[] } }> => {
+    const response = await api.post(`/educator/quizzes/categories/${categoryUuid}/questions/bulk`, { questions });
+    return response.data;
+  },
+
+  importTemplateUrl: (format: 'excel' | 'csv'): string => {
+    const base = (api.defaults.baseURL || '').replace(/\/$/, '');
+    return `${base}/educator/quizzes/questions/import-template?format=${format}`;
+  },
+
+  parseImportFile: async (file: File): Promise<{ success: boolean; data: { totalRows: number; validQuestions: any[]; errors: any[] } }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/educator/quizzes/questions/parse-import', formData);
+    return response.data;
+  },
+
   updateQuestion: async (
     questionUuid: string,
     data: Partial<Pick<QuizQuestion, 'question_text' | 'option_a' | 'option_b' | 'option_c' | 'option_d' | 'correct_answer' | 'explanation' | 'marks'>>
