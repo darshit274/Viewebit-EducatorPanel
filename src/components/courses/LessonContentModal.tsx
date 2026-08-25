@@ -84,6 +84,7 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
   const [assignmentMode, setAssignmentMode] = useState<'existing' | 'new'>('existing');
   const [mediaMode, setMediaMode] = useState<'url' | 'upload'>('url');
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [justUploaded, setJustUploaded] = useState(false);
 
   const [newAssignmentSubmissionType, setNewAssignmentSubmissionType] = useState<'text' | 'file_upload' | 'quiz'>('text');
   const [newAssignmentMaxPoints, setNewAssignmentMaxPoints] = useState('100');
@@ -280,6 +281,7 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
                       try {
                         const res = await coursesService.uploadLessonMedia(courseUuid, lessonType as 'video' | 'audio', file);
                         setMediaUrl(res.data.url);
+                        setJustUploaded(true);
                         toast.success('File uploaded');
                       } catch (error: any) {
                         toast.error(error.response?.data?.message || 'Failed to upload file');
@@ -290,7 +292,7 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
                     className="w-full text-sm text-gray-700"
                   />
                   {uploadingMedia && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
-                  {mediaUrl && !uploadingMedia && <p className="text-xs text-green-600 mt-1">Uploaded — you can replace it by choosing another file.</p>}
+                  {justUploaded && !uploadingMedia && <p className="text-xs text-green-600 mt-1">Uploaded — you can replace it by choosing another file.</p>}
                 </div>
               )}
 
