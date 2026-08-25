@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { quizHierarchyService, QuizCategory, QuizQuestion, CategoryContent } from '../../services/quizHierarchy';
+import { QuestionFieldsForm, QuestionFieldsValue, emptyQuestionFields } from '../../components/quizzes/QuestionFieldsForm';
 
 interface AddCategoryModalProps {
   isOpen: boolean;
@@ -96,40 +97,30 @@ interface AddQuestionModalProps {
 }
 
 const AddQuestionModal: React.FC<AddQuestionModalProps> = ({ isOpen, onClose, onSuccess, categoryUuid }) => {
-  const [questionText, setQuestionText] = useState('');
-  const [options, setOptions] = useState({ A: '', B: '', C: '', D: '' });
-  const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
-  const [explanation, setExplanation] = useState('');
-  const [marks, setMarks] = useState('1');
+  const [fields, setFields] = useState<QuestionFieldsValue>(emptyQuestionFields());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setQuestionText('');
-      setOptions({ A: '', B: '', C: '', D: '' });
-      setCorrectAnswer('A');
-      setExplanation('');
-      setMarks('1');
-    }
+    if (isOpen) setFields(emptyQuestionFields());
   }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!questionText.trim() || !options.A.trim() || !options.B.trim() || !options.C.trim() || !options.D.trim()) {
+    if (!fields.questionText.trim() || !fields.options.A.trim() || !fields.options.B.trim() || !fields.options.C.trim() || !fields.options.D.trim()) {
       toast.error('Question text and all four options are required');
       return;
     }
     setLoading(true);
     try {
       await quizHierarchyService.createQuestion(categoryUuid, {
-        question_text: questionText,
-        option_a: options.A,
-        option_b: options.B,
-        option_c: options.C,
-        option_d: options.D,
-        correct_answer: correctAnswer,
-        explanation: explanation || undefined,
-        marks: parseInt(marks) || 1,
+        question_text: fields.questionText,
+        option_a: fields.options.A,
+        option_b: fields.options.B,
+        option_c: fields.options.C,
+        option_d: fields.options.D,
+        correct_answer: fields.correctAnswer,
+        explanation: fields.explanation || undefined,
+        marks: parseInt(fields.marks) || 1,
       });
       toast.success('Question added');
       onSuccess();
@@ -148,57 +139,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({ isOpen, onClose, on
       <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Add Question</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Question *</label>
-            <textarea
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-              required
-            />
-          </div>
-
-          {(['A', 'B', 'C', 'D'] as const).map((key) => (
-            <div key={key} className="flex items-center gap-3">
-              <input
-                type="radio"
-                name="correct_answer"
-                checked={correctAnswer === key}
-                onChange={() => setCorrectAnswer(key)}
-                className="h-4 w-4 text-primary-600"
-              />
-              <input
-                type="text"
-                value={options[key]}
-                onChange={(e) => setOptions({ ...options, [key]: e.target.value })}
-                placeholder={`Option ${key}`}
-                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                required
-              />
-            </div>
-          ))}
-          <p className="text-xs text-gray-500">Select the radio button next to the correct option.</p>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Explanation (optional)</label>
-            <textarea
-              value={explanation}
-              onChange={(e) => setExplanation(e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Marks</label>
-            <input
-              type="number"
-              value={marks}
-              onChange={(e) => setMarks(e.target.value)}
-              className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
+          <QuestionFieldsForm value={fields} onChange={setFields} idPrefix="add" />
 
           <div className="border-t pt-4 flex space-x-3">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
@@ -301,41 +242,39 @@ interface EditQuestionModalProps {
 }
 
 const EditQuestionModal: React.FC<EditQuestionModalProps> = ({ isOpen, onClose, onSuccess, question }) => {
-  const [questionText, setQuestionText] = useState('');
-  const [options, setOptions] = useState({ A: '', B: '', C: '', D: '' });
-  const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
-  const [explanation, setExplanation] = useState('');
-  const [marks, setMarks] = useState('1');
+  const [fields, setFields] = useState<QuestionFieldsValue>(emptyQuestionFields());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen && question) {
-      setQuestionText(question.question_text);
-      setOptions({ A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d });
-      setCorrectAnswer(question.correct_answer);
-      setExplanation(question.explanation || '');
-      setMarks(String(question.marks));
+      setFields({
+        questionText: question.question_text,
+        options: { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d },
+        correctAnswer: question.correct_answer,
+        explanation: question.explanation || '',
+        marks: String(question.marks),
+      });
     }
   }, [isOpen, question]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!question) return;
-    if (!questionText.trim() || !options.A.trim() || !options.B.trim() || !options.C.trim() || !options.D.trim()) {
+    if (!fields.questionText.trim() || !fields.options.A.trim() || !fields.options.B.trim() || !fields.options.C.trim() || !fields.options.D.trim()) {
       toast.error('Question text and all four options are required');
       return;
     }
     setLoading(true);
     try {
       await quizHierarchyService.updateQuestion(question.uuid, {
-        question_text: questionText,
-        option_a: options.A,
-        option_b: options.B,
-        option_c: options.C,
-        option_d: options.D,
-        correct_answer: correctAnswer,
-        explanation: explanation || undefined,
-        marks: parseInt(marks) || 1,
+        question_text: fields.questionText,
+        option_a: fields.options.A,
+        option_b: fields.options.B,
+        option_c: fields.options.C,
+        option_d: fields.options.D,
+        correct_answer: fields.correctAnswer,
+        explanation: fields.explanation || undefined,
+        marks: parseInt(fields.marks) || 1,
       });
       toast.success('Question updated');
       onSuccess();
@@ -354,57 +293,7 @@ const EditQuestionModal: React.FC<EditQuestionModalProps> = ({ isOpen, onClose, 
       <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Question</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Question *</label>
-            <textarea
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-              required
-            />
-          </div>
-
-          {(['A', 'B', 'C', 'D'] as const).map((key) => (
-            <div key={key} className="flex items-center gap-3">
-              <input
-                type="radio"
-                name="edit_correct_answer"
-                checked={correctAnswer === key}
-                onChange={() => setCorrectAnswer(key)}
-                className="h-4 w-4 text-primary-600"
-              />
-              <input
-                type="text"
-                value={options[key]}
-                onChange={(e) => setOptions({ ...options, [key]: e.target.value })}
-                placeholder={`Option ${key}`}
-                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                required
-              />
-            </div>
-          ))}
-          <p className="text-xs text-gray-500">Select the radio button next to the correct option.</p>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Explanation (optional)</label>
-            <textarea
-              value={explanation}
-              onChange={(e) => setExplanation(e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Marks</label>
-            <input
-              type="number"
-              value={marks}
-              onChange={(e) => setMarks(e.target.value)}
-              className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
+          <QuestionFieldsForm value={fields} onChange={setFields} idPrefix="edit" />
 
           <div className="border-t pt-4 flex space-x-3">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={loading}>
