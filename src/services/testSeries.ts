@@ -11,6 +11,7 @@ export interface MyTestSeries {
   is_active: boolean;
   categoriesCount: number;
   created_at: string;
+  course?: { uuid: string; title: string } | null;
 }
 
 export const testSeriesService = {
@@ -19,7 +20,7 @@ export const testSeriesService = {
     return response.data.data;
   },
 
-  create: async (data: { title: string; description?: string; price?: number }) => {
+  create: async (data: { title: string; description?: string; price?: number } | { course_uuid: string }) => {
     const response = await api.post('/educator/test-series', data);
     return response.data.data as MyTestSeries;
   },
