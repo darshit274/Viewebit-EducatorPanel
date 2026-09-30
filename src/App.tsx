@@ -13,6 +13,7 @@ import { AssignmentsPage } from './pages/assignments/AssignmentsPage';
 import { GradingPage } from './pages/grading/GradingPage';
 import { LiveSessionsPage } from './pages/live/LiveSessionsPage';
 import { QuizCategoriesPage } from './pages/quizzes/QuizCategoriesPage';
+import { MyTestSeriesPage } from './pages/testSeries/MyTestSeriesPage';
 import { PdfLibraryPage } from './pages/pdfs/PdfLibraryPage';
 import { StudentsPage } from './pages/students/StudentsPage';
 import { TestAttemptsPage } from './pages/test-attempts/TestAttemptsPage';
@@ -55,6 +56,8 @@ const AuthWrapper: React.FC = () => {
         <Route path="grading" element={<ProtectedRoute><GradingPage /></ProtectedRoute>} />
         <Route path="live-sessions" element={<ProtectedRoute><LiveSessionsPage /></ProtectedRoute>} />
         <Route path="quizzes" element={<ProtectedRoute><QuizCategoriesPage /></ProtectedRoute>} />
+        <Route path="test-series" element={<ProtectedRoute><MyTestSeriesPage /></ProtectedRoute>} />
+        <Route path="test-series/:testSeriesUuid/content" element={<ProtectedRoute><QuizCategoriesPage /></ProtectedRoute>} />
         <Route path="pdfs" element={<ProtectedRoute><PdfLibraryPage /></ProtectedRoute>} />
         <Route path="students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
         <Route path="test-attempts" element={<ProtectedRoute><TestAttemptsPage /></ProtectedRoute>} />

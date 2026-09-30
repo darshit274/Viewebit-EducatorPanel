@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Pencil, ChevronRight, Folder, HelpCircle, Home } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { Plus, Trash2, Pencil, ChevronRight, ChevronLeft, Folder, HelpCircle, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
@@ -11,9 +12,10 @@ interface AddCategoryModalProps {
   onClose: () => void;
   onSuccess: () => void;
   parentUuid: string | null;
+  testSeriesUuid?: string;
 }
 
-const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onClose, onSuccess, parentUuid }) => {
+const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onClose, onSuccess, parentUuid, testSeriesUuid }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onClose, on
       if (parentUuid) {
         await quizHierarchyService.createSubcategory(parentUuid, name, description || undefined);
       } else {
-        await quizHierarchyService.createRootCategory(name, description || undefined);
+        await quizHierarchyService.createRootCategory(name, description || undefined, testSeriesUuid);
       }
       toast.success('Category created');
       onSuccess();
@@ -309,13 +311,156 @@ const EditQuestionModal: React.FC<EditQuestionModalProps> = ({ isOpen, onClose, 
   );
 };
 
+interface ImportQuestionsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  categoryUuid: string | null;
+}
+
+type ImportPreview = { totalRows: number; validQuestions: any[]; errors: any[] } | null;
+
+const ImportQuestionsModal: React.FC<ImportQuestionsModalProps> = ({ isOpen, onClose, onSuccess, categoryUuid }) => {
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview>(null);
+  const [parsing, setParsing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState<'excel' | 'csv' | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setImportFile(null);
+      setImportPreview(null);
+    }
+  }, [isOpen]);
+
+  const handleDownloadTemplate = async (format: 'excel' | 'csv') => {
+    setDownloadingTemplate(format);
+    try {
+      await quizHierarchyService.downloadImportTemplate(format);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to download template');
+    } finally {
+      setDownloadingTemplate(null);
+    }
+  };
+
+  const handleParseImport = async () => {
+    if (!importFile) {
+      toast.error('Choose a file first');
+      return;
+    }
+    setParsing(true);
+    try {
+      const res = await quizHierarchyService.parseImportFile(importFile);
+      setImportPreview(res.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to parse file');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!categoryUuid || !importPreview || importPreview.validQuestions.length === 0) return;
+    setConfirming(true);
+    try {
+      const res = await quizHierarchyService.bulkCreateQuestions(categoryUuid, importPreview.validQuestions);
+      toast.success(`${res.data.created} questions imported`);
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to import questions');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Import Questions</h2>
+        <div className="space-y-3">
+          <div className="flex gap-3 text-sm">
+            <button
+              type="button"
+              onClick={() => handleDownloadTemplate('excel')}
+              disabled={downloadingTemplate !== null}
+              className="text-primary-600 hover:underline disabled:opacity-50"
+            >
+              {downloadingTemplate === 'excel' ? 'Downloading...' : 'Download Excel Template'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDownloadTemplate('csv')}
+              disabled={downloadingTemplate !== null}
+              className="text-primary-600 hover:underline disabled:opacity-50"
+            >
+              {downloadingTemplate === 'csv' ? 'Downloading...' : 'Download CSV Template'}
+            </button>
+          </div>
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={(e) => { setImportFile(e.target.files?.[0] || null); setImportPreview(null); }}
+            className="w-full text-sm text-gray-700"
+          />
+          <button
+            type="button"
+            onClick={handleParseImport}
+            disabled={!importFile || parsing}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50"
+          >
+            {parsing ? 'Validating...' : 'Upload & Validate'}
+          </button>
+
+          {importPreview && (
+            <div className="space-y-2">
+              <p className="text-sm text-gray-700">
+                {importPreview.validQuestions.length} valid, {importPreview.errors.length} error{importPreview.errors.length === 1 ? '' : 's'} out of {importPreview.totalRows} rows.
+              </p>
+              {importPreview.errors.length > 0 && (
+                <div className="max-h-32 overflow-y-auto text-xs text-red-600 space-y-0.5 border border-red-100 rounded-md p-2 bg-red-50">
+                  {importPreview.errors.slice(0, 20).map((e: any, i: number) => (
+                    <p key={i}>Row {e.row}: {e.field} — {e.error}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="border-t pt-4 mt-4 flex space-x-3">
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" disabled={confirming}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmImport}
+            disabled={!importPreview || importPreview.validQuestions.length === 0 || confirming}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            {confirming ? 'Importing...' : `Confirm Import${importPreview ? ` (${importPreview.validQuestions.length})` : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const QuizCategoriesPage: React.FC = () => {
+  // Present only on the /test-series/:testSeriesUuid/content route — scopes
+  // this whole page to one of the educator's own standalone series instead
+  // of their private quiz bank (the default when this is undefined).
+  const { testSeriesUuid } = useParams<{ testSeriesUuid?: string }>();
   const [rootCategories, setRootCategories] = useState<QuizCategory[]>([]);
   const [currentUuid, setCurrentUuid] = useState<string | null>(null);
   const [content, setContent] = useState<CategoryContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editCategory, setEditCategory] = useState<QuizCategory | null>(null);
   const [editQuestion, setEditQuestion] = useState<QuizQuestion | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'category' | 'question'; uuid: string; label: string; loading: boolean }>({
@@ -325,14 +470,14 @@ export const QuizCategoriesPage: React.FC = () => {
   const loadRoots = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await quizHierarchyService.getRootCategories();
+      const res = await quizHierarchyService.getRootCategories(testSeriesUuid);
       setRootCategories(res.data || []);
     } catch (error) {
       toast.error('Failed to load quiz categories');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [testSeriesUuid]);
 
   const loadContent = useCallback(async (uuid: string) => {
     setLoading(true);
@@ -384,8 +529,17 @@ export const QuizCategoriesPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quiz Categories</h1>
-          <p className="text-gray-600">Build your own question bank — link categories to quiz lessons and assignments in your courses</p>
+          {testSeriesUuid && (
+            <Link to="/test-series" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600 mb-1">
+              <ChevronLeft className="h-4 w-4" /> Back to My Test Series
+            </Link>
+          )}
+          <h1 className="text-2xl font-bold text-gray-900">{testSeriesUuid ? 'Test Series Content' : 'Quiz Categories'}</h1>
+          <p className="text-gray-600">
+            {testSeriesUuid
+              ? 'Build the categories and questions students will see in this test series'
+              : 'Build your own question bank — link categories to quiz lessons and assignments in your courses'}
+          </p>
         </div>
         <div className="flex gap-2">
           {canAddSubcategory && (
@@ -395,10 +549,15 @@ export const QuizCategoriesPage: React.FC = () => {
             </button>
           )}
           {canAddQuestion && (
-            <button onClick={() => setShowQuestionModal(true)} className="btn-secondary inline-flex items-center">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Question
-            </button>
+            <>
+              <button onClick={() => setShowQuestionModal(true)} className="btn-secondary inline-flex items-center">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Question
+              </button>
+              <button onClick={() => setShowImportModal(true)} className="btn-secondary inline-flex items-center">
+                Import Questions
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -503,9 +662,12 @@ export const QuizCategoriesPage: React.FC = () => {
         )}
       </div>
 
-      <AddCategoryModal isOpen={showCategoryModal} onClose={() => setShowCategoryModal(false)} onSuccess={refresh} parentUuid={currentUuid} />
+      <AddCategoryModal isOpen={showCategoryModal} onClose={() => setShowCategoryModal(false)} onSuccess={refresh} parentUuid={currentUuid} testSeriesUuid={testSeriesUuid} />
       {currentUuid && (
-        <AddQuestionModal isOpen={showQuestionModal} onClose={() => setShowQuestionModal(false)} onSuccess={refresh} categoryUuid={currentUuid} />
+        <>
+          <AddQuestionModal isOpen={showQuestionModal} onClose={() => setShowQuestionModal(false)} onSuccess={refresh} categoryUuid={currentUuid} />
+          <ImportQuestionsModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} onSuccess={refresh} categoryUuid={currentUuid} />
+        </>
       )}
       <EditCategoryModal isOpen={!!editCategory} onClose={() => setEditCategory(null)} onSuccess={refresh} category={editCategory} />
       <EditQuestionModal isOpen={!!editQuestion} onClose={() => setEditQuestion(null)} onSuccess={refresh} question={editQuestion} />

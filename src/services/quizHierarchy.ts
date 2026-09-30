@@ -39,8 +39,10 @@ export interface CategoryContent {
 }
 
 export const quizHierarchyService = {
-  getRootCategories: async (): Promise<{ success: boolean; data: QuizCategory[] }> => {
-    const response = await api.get('/educator/quizzes/roots');
+  getRootCategories: async (testSeriesUuid?: string): Promise<{ success: boolean; data: QuizCategory[] }> => {
+    const response = await api.get('/educator/quizzes/roots', {
+      params: testSeriesUuid ? { test_series_id: testSeriesUuid } : undefined,
+    });
     return response.data;
   },
 
@@ -49,8 +51,12 @@ export const quizHierarchyService = {
     return response.data;
   },
 
-  createRootCategory: async (name: string, description?: string) => {
-    const response = await api.post('/educator/quizzes/categories', { name, description });
+  createRootCategory: async (name: string, description?: string, testSeriesUuid?: string) => {
+    const response = await api.post('/educator/quizzes/categories', {
+      name,
+      description,
+      ...(testSeriesUuid ? { test_series_id: testSeriesUuid } : {}),
+    });
     return response.data;
   },
 

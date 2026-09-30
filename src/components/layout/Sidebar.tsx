@@ -12,6 +12,7 @@ import {
   Users,
   Activity,
   CreditCard,
+  ListChecks,
 } from 'lucide-react';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
@@ -21,6 +22,7 @@ import { useAuth } from '../../hooks/useAuth';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'My Courses', href: '/courses', icon: BookOpen },
+  { name: 'My Test Series', href: '/test-series', icon: ListChecks },
   { name: 'Students', href: '/students', icon: Users },
   { name: 'Test Attempts', href: '/test-attempts', icon: Activity },
   { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
