@@ -14,6 +14,13 @@ const api = axios.create({
   },
 });
 
+// The backend's own origin, e.g. for static files under /uploads that live
+// outside the /api prefix. Behind a reverse proxy VITE_API_URL is path-prefixed
+// (https://host/backend/api), so a URL built from window.location or a raw
+// host header would miss that prefix — deriving it from VITE_API_URL instead
+// keeps it correct in every environment without hardcoding the prefix.
+export const API_ORIGIN = (import.meta.env.VITE_API_URL as string).replace(/\/api\/?$/, '');
+
 api.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem(STORAGE_KEYS.TOKEN);

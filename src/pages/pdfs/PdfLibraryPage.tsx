@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/common/LoadingSpinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { pdfHierarchyService, PdfCategoryNode, PdfItem, PdfCategoryContent } from '../../services/pdfHierarchy';
+import { API_ORIGIN } from '../../services/api';
 
 interface AddCategoryModalProps {
   isOpen: boolean;
@@ -506,7 +507,7 @@ export const PdfLibraryPage: React.FC = () => {
                 {content.category.pdfs.map((pdf: PdfItem) => (
                   <div key={pdf.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
                     <button
-                      onClick={() => pdf.file_url && window.open(pdf.file_url, '_blank', 'noopener,noreferrer')}
+                      onClick={() => pdf.file_url && window.open(`${API_ORIGIN}${pdf.file_url}`, '_blank', 'noopener,noreferrer')}
                       className="flex items-center gap-2 flex-1 text-left"
                     >
                       <FileText className="h-5 w-5 text-primary-500" />
