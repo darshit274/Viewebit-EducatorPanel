@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Image as ImageIcon, Pencil, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesService } from '../../services/courses';
+import { API_ORIGIN } from '../../services/api';
 
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/gif,image/webp';
 
@@ -55,7 +56,7 @@ export const CourseImageUpload: React.FC<CourseImageUploadProps> = ({ courseUuid
       <input ref={inputRef} type="file" accept={ACCEPTED_TYPES} className="hidden" onChange={handleInputChange} />
       {value ? (
         <div className="relative w-full h-40 rounded-md overflow-hidden border border-gray-300 group">
-          <img src={value} alt="Course featured" className="w-full h-full object-cover" />
+          <img src={value.startsWith('/uploads/') ? `${API_ORIGIN}${value}` : value} alt="Course featured" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
             <button
               type="button"

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { coursesService } from '../../services/courses';
+import { API_ORIGIN } from '../../services/api';
 import { liveSessionsService, MeetingProvider } from '../../services/liveSessions';
 import { Lesson, LessonType, PdfOption, QuizCategoryOption, AssignmentOption, LiveSessionOption } from '../../types';
 import { RichTextEditor } from './RichTextEditor';
@@ -301,7 +302,8 @@ const LessonContentForm: React.FC<Omit<LessonContentModalProps, 'isOpen'>> = ({
                       setUploadingMedia(true);
                       try {
                         const res = await coursesService.uploadLessonMedia(courseUuid, lessonType as 'video' | 'audio', file);
-                        setMediaUrl(res.data.url);
+                        const fullUrl = res.data.url.startsWith('/uploads/') ? `${API_ORIGIN}${res.data.url}` : res.data.url;
+                        setMediaUrl(fullUrl);
                         setJustUploaded(true);
                         toast.success('File uploaded');
                       } catch (error: any) {
