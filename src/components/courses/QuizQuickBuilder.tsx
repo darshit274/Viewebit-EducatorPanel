@@ -15,6 +15,7 @@ type ImportPreview = { totalRows: number; validQuestions: any[]; errors: any[] }
 
 export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, onCreated }) => {
   const [name, setName] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('60');
   const [category, setCategory] = useState<QuizCategoryOption | null>(null);
   const [creating, setCreating] = useState(false);
   // Guards against onCreated firing more than once for a single mount — it's meant to
@@ -38,9 +39,14 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
       toast.error('Quiz name is required');
       return;
     }
+    const duration = parseInt(durationMinutes, 10);
+    if (isNaN(duration) || duration < 1) {
+      toast.error('Duration must be a positive number of minutes');
+      return;
+    }
     setCreating(true);
     try {
-      const res = await coursesService.createCourseQuizCategory(courseUuid, name);
+      const res = await coursesService.createCourseQuizCategory(courseUuid, name, duration);
       // Intentionally NOT calling onCreated here: the parent should only learn about
       // this category once it's actually usable, i.e. once it has ≥1 question (see
       // handleAddQuestion / handleConfirmImport below). An empty category shouldn't be
@@ -146,6 +152,16 @@ export const QuizQuickBuilder: React.FC<QuizQuickBuilderProps> = ({ courseUuid, 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Chapter 1 Quiz"
+              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="w-28">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Time (min) *</label>
+            <input
+              type="number"
+              min={1}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(e.target.value)}
               className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>

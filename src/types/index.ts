@@ -38,6 +38,7 @@ export interface QuizCategoryOption {
   uuid: string;
   name: string;
   node_type: 'unset' | 'container' | 'question_holder';
+  test_duration_minutes?: number;
 }
 
 export interface PdfOption {
